@@ -91,11 +91,33 @@ scripts/seed.ts
 No secrets live in this repository. The household password exists only as a PBKDF2 hash
 in the SQLite file.
 
-## Deployment notes
+## Deployment
 
 The server must sit behind an HTTPS reverse proxy or tunnel; it is not meant to face the
-internet directly. Back up both the SQLite file and (once photos land) the photo
-directory. `GET /api/health` verifies the app can reach its storage.
+internet directly. `GET /api/health` verifies the app can reach its storage, and backups
+need to cover both the SQLite file and (once photos land) the photo directory.
+
+`deploy/` holds one worked deployment: a Docker image for the app plus a Tailscale
+sidecar container that terminates TLS and exposes it over Tailscale Funnel, so the app
+is reachable on the public internet without a port-forward and without the client
+needing Tailscale. It is not the only option — any HTTPS reverse proxy in front of the
+container works.
+
+```sh
+cp deploy/.env.example deploy/.env   # then fill in the three TS_* values
+make deploy-build
+make deploy-up                       # sidecar first, then the app
+./deploy/seed.sh --password=<household password>
+```
+
+Two things to get right, both covered in [CLAUDE.md](CLAUDE.md):
+
+- **`TRUST_PROXY=1` is required** behind a proxy, and only safe if that proxy overwrites
+  `X-Forwarded-For`. Without it every request looks like it came from the proxy and the
+  login rate limiter throttles all clients as one; with it in front of a proxy that
+  merely forwards the header, a caller can forge a fresh limiter bucket per request.
+- **Nothing in `deploy/` may be committed with real values in it.** `deploy/.env`,
+  `deploy/serve.json` (generated) and `deploy/tailscale_state/` are gitignored.
 
 ## Tuning recommendations
 

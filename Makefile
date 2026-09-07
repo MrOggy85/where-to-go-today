@@ -1,4 +1,4 @@
-.PHONY: install seed dev build start check fmt
+.PHONY: install seed dev build start check fmt deploy-build deploy-up deploy-logs
 
 # The client needs react + esbuild; the api has no dependencies.
 install:
@@ -30,3 +30,16 @@ check:
 fmt:
 	deno fmt --config api/deno.json api scripts
 	deno fmt --config client/deno.json client
+
+# --- Deployment (Docker + Tailscale Funnel sidecar; see deploy/ and CLAUDE.md) --------
+# These act on the production container, not the working tree. `make dev` is unaffected.
+
+deploy-build:
+	./deploy/build.sh
+
+# Sidecar first: the app container joins its network namespace.
+deploy-up:
+	./deploy/sidecar.sh && ./deploy/start.sh
+
+deploy-logs:
+	docker logs -f where-to-go-today

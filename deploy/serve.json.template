@@ -1,0 +1,19 @@
+{
+  "TCP": {
+    "443": {
+      "HTTPS": true
+    }
+  },
+  "Web": {
+    "__PUBLIC_HOSTNAME__:443": {
+      "Handlers": {
+        "/": {
+          "Proxy": "http://127.0.0.1:8777"
+        }
+      }
+    }
+  },
+  "AllowFunnel": {
+    "__PUBLIC_HOSTNAME__:443": true
+  }
+}

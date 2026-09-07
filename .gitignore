@@ -8,3 +8,10 @@ data/
 .DS_Store
 .env
 .claude/settings.local.json
+
+# Deployment. This is a public repo, so the auth key, node identity and tailnet name
+# stay untracked.
+# deploy/serve.json is generated from serve.json.template by deploy/sidecar.sh.
+deploy/.env
+deploy/serve.json
+deploy/tailscale_state/

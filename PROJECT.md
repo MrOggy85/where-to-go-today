@@ -576,7 +576,7 @@ A later enhancement may parse information from a pasted Google Maps URL, but the
 
 ## 16. Authentication model
 
-Unlike the `sweden` project, anonymous device identity is not sufficient.
+Anonymous device identity is not sufficient here.
 
 The app contains private family data and photos and is reachable from the public internet.
 
@@ -695,7 +695,10 @@ Recommendation queries may derive the latest visit using `MAX(visits.visited_at)
 
 ## 20. Architecture
 
-The project should deliberately resemble the technical shape of `MrOggy85/sweden`.
+The project deliberately resembles the technical shape of the author's earlier small
+Deno + React services: a single Deno process serving its own built client, no framework,
+and all SQL confined to one layer. The sections below are the contract; that resemblance
+is only the starting point.
 
 Suggested repository layout:
 
@@ -767,15 +770,23 @@ Plain HTTP JSON endpoints are enough.
 
 The default deployment target is the family's home server.
 
-Production shape:
+Production shape, as deployed (decided 2026-09-07 — resolves open decision 14):
 
 ```txt
 Internet
-  -> HTTPS ingress / reverse proxy or secure tunnel
-  -> Deno application
+  -> Tailscale Funnel (HTTPS ingress, TLS terminated by Tailscale)
+  -> `wtgt-tailscale` sidecar container, own tailnet node
+  -> `where-to-go-today` container on shared loopback, Deno application
        -> SQLite database
        -> local `/data/photos/` directory
 ```
+
+The ingress is Tailscale Funnel on a dedicated per-app tailnet node. A sidecar rather
+than the host's own Tailscale client, because Funnel cannot be attached to a Tailscale
+Service — the alternative would expose the host node itself, which also serves unrelated
+private services, on the public internet.
+
+Operational detail lives in `CLAUDE.md` under "Deployment".
 
 Requirements:
 
@@ -795,7 +806,12 @@ Tailscale remains useful for:
 - private operator access
 - maintenance and backup workflows
 
-Tailscale is not a dependency for normal application usage.
+Users do not need Tailscale: Funnel serves the app over public HTTPS to any browser, so
+the requirement above holds. Tailscale is, however, now a dependency of the *ingress* —
+if the tailnet node's key expires or Tailscale's relays are down, the app is unreachable
+even though the container is healthy. That is the accepted trade for not port-forwarding
+the home router. Cloudflare Tunnel over the family's own domain remains the fallback if
+that trade stops being acceptable.
 
 Deno Deploy remains a possible future deployment alternative, but it is not the default architecture and the application must not depend on Deploy-specific storage APIs.
 
@@ -1051,8 +1067,12 @@ The following questions remain intentionally open and should be answered from re
 
 ### Public hosting
 
-14. Which public HTTPS ingress should be used for the home server: router port-forward + reverse proxy, Cloudflare Tunnel, another secure tunnel, or another setup?
-15. Should login receive additional protection such as IP-based rate limits, temporary lockouts, or a second factor?
+14. ~~Which public HTTPS ingress should be used for the home server?~~ **Decided 2026-09-07:**
+    Tailscale Funnel via a per-app sidecar container. See section 21.
+15. Login is IP rate limited (10 attempts / 15 min, `api/auth/guard.ts`), which behind the
+    Funnel sidecar depends on `TRUST_PROXY=1` to see real client IPs. Still open: whether a
+    single shared household password on a publicly reachable login warrants a second factor
+    or temporary lockouts.
 
 ## 31. Confirmed defaults
 
