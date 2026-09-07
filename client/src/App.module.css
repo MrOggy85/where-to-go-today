@@ -1,0 +1,78 @@
+.shell {
+  min-height: 100vh;
+  padding-bottom: calc(72px + env(safe-area-inset-bottom));
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--green);
+  color: #fff;
+}
+
+.title {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.who {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.linkButton {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 999px;
+  color: #fff;
+  cursor: pointer;
+  padding: 6px 12px;
+}
+
+.main {
+  margin: 0 auto;
+  max-width: 720px;
+  padding: 16px;
+}
+
+.nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  background: var(--card);
+  border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.navItem {
+  flex: 1;
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 8px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.navItemActive {
+  composes: navItem;
+  color: var(--green);
+  box-shadow: inset 0 2px 0 var(--green);
+}
+
+.center {
+  padding: 48px 16px;
+  text-align: center;
+  color: var(--muted);
+}

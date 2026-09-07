@@ -1,0 +1,65 @@
+.weatherBar {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  font-size: 14px;
+  gap: 8px;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.controls {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  padding: 12px 14px;
+}
+
+.controlGroup {
+  margin-bottom: 12px;
+}
+
+.controlGroup:last-child {
+  margin-bottom: 0;
+}
+
+.controlLabel {
+  color: var(--muted);
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+.tempRow {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.tempInput {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  min-height: var(--tap);
+  padding: 10px 12px;
+  width: 96px;
+}
+
+.pick {
+  background: var(--card);
+  border: 2px solid var(--green);
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  padding: 16px;
+}
+
+.pickLabel {
+  color: var(--green-dark);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
