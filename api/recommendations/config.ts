@@ -6,19 +6,16 @@
 /** PROJECT.md section 13: in range when drive OR train time is at most this. */
 export const NORMAL_TRAVEL_MINUTES = 45;
 
-/** Days before a place is considered "fresh again", unless it overrides with preferredCooldownDays. */
-export const DEFAULT_COOLDOWN_DAYS = 90;
-
 /**
- * Recency, keyed on elapsed days as a fraction of the place's cooldown. Piecewise so the
- * curve is readable: just visited is a strong penalty, past the cooldown is a boost.
+ * Recency, keyed on days since the last visit. Piecewise so the curve is readable: just
+ * visited is a strong penalty, roughly a season away is a boost.
  */
-export const RECENCY_STEPS: { maxFraction: number; score: number; label: string }[] = [
-  { maxFraction: 0.02, score: -30, label: 'Just visited' },
-  { maxFraction: 0.1, score: -18, label: 'Visited very recently' },
-  { maxFraction: 0.35, score: -8, label: 'Visited fairly recently' },
-  { maxFraction: 1, score: 2, label: 'Not visited in a while' },
-  { maxFraction: Infinity, score: 12, label: 'Not visited in a long time' },
+export const RECENCY_STEPS: { maxDays: number; score: number; label: string }[] = [
+  { maxDays: 2, score: -30, label: 'Just visited' },
+  { maxDays: 9, score: -18, label: 'Visited very recently' },
+  { maxDays: 32, score: -8, label: 'Visited fairly recently' },
+  { maxDays: 90, score: 2, label: 'Not visited in a while' },
+  { maxDays: Infinity, score: 12, label: 'Not visited in a long time' },
 ];
 
 /** Confirmed default: never-visited places get only a small boost. */

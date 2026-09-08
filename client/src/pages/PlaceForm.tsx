@@ -18,17 +18,15 @@ interface FormState {
   categories: string;
   driveMinutes: string;
   trainMinutes: string;
-  typicalDurationMinutes: string;
+  typicalDurationHours: string;
   costLevel: string;
   priority: string;
-  preferredCooldownDays: string;
   goodForRain: string;
   goodForHotWeather: string;
   goodForColdWeather: string;
   goodForWind: string;
   shaded: string;
   parking: string;
-  strollerFriendly: string;
   foodAvailable: string;
   toilets: string;
   notes: string;
@@ -44,17 +42,15 @@ const EMPTY: FormState = {
   categories: '',
   driveMinutes: '',
   trainMinutes: '',
-  typicalDurationMinutes: '',
+  typicalDurationHours: '',
   costLevel: '',
   priority: '1',
-  preferredCooldownDays: '',
   goodForRain: '',
   goodForHotWeather: '',
   goodForColdWeather: '',
   goodForWind: '',
   shaded: '',
   parking: '',
-  strollerFriendly: '',
   foodAvailable: '',
   toilets: '',
   notes: '',
@@ -73,17 +69,15 @@ function fromPlace(p: Place): FormState {
     categories: p.categories.join(', '),
     driveMinutes: num(p.driveMinutes),
     trainMinutes: num(p.trainMinutes),
-    typicalDurationMinutes: num(p.typicalDurationMinutes),
+    typicalDurationHours: num(p.typicalDurationHours),
     costLevel: p.costLevel ?? '',
     priority: String(p.priority),
-    preferredCooldownDays: num(p.preferredCooldownDays),
     goodForRain: bool(p.goodForRain),
     goodForHotWeather: bool(p.goodForHotWeather),
     goodForColdWeather: bool(p.goodForColdWeather),
     goodForWind: bool(p.goodForWind),
     shaded: bool(p.shaded),
     parking: p.parking ?? '',
-    strollerFriendly: p.strollerFriendly ?? '',
     foodAvailable: p.foodAvailable ?? '',
     toilets: p.toilets ?? '',
     notes: p.notes ?? '',
@@ -105,17 +99,15 @@ function toBody(f: FormState) {
     categories: f.categories.split(',').map((c) => c.trim()).filter(Boolean),
     driveMinutes: num(f.driveMinutes),
     trainMinutes: num(f.trainMinutes),
-    typicalDurationMinutes: num(f.typicalDurationMinutes),
+    typicalDurationHours: num(f.typicalDurationHours),
     costLevel: text(f.costLevel) as CostLevel | null,
     priority: Number(f.priority) || 1,
-    preferredCooldownDays: num(f.preferredCooldownDays),
     goodForRain: bool(f.goodForRain),
     goodForHotWeather: bool(f.goodForHotWeather),
     goodForColdWeather: bool(f.goodForColdWeather),
     goodForWind: bool(f.goodForWind),
     shaded: bool(f.shaded),
     parking: text(f.parking) as Tristate | null,
-    strollerFriendly: text(f.strollerFriendly) as Tristate | null,
     foodAvailable: text(f.foodAvailable) as Tristate | null,
     toilets: text(f.toilets) as Tristate | null,
     notes: text(f.notes),
@@ -207,14 +199,10 @@ export function PlaceForm({ id }: { id?: string }) {
           <NumberField label='Drive (min)' value={form.driveMinutes} onChange={set('driveMinutes')} />
           <NumberField label='Train (min)' value={form.trainMinutes} onChange={set('trainMinutes')} />
           <NumberField
-            label='Typical visit (min)'
-            value={form.typicalDurationMinutes}
-            onChange={set('typicalDurationMinutes')}
-          />
-          <NumberField
-            label='Cooldown (days)'
-            value={form.preferredCooldownDays}
-            onChange={set('preferredCooldownDays')}
+            label='Typical visit (hours)'
+            value={form.typicalDurationHours}
+            onChange={set('typicalDurationHours')}
+            step={0.5}
           />
         </div>
       </Section>
@@ -229,12 +217,6 @@ export function PlaceForm({ id }: { id?: string }) {
 
       <Section title='Practical details'>
         <SelectField label='Parking' value={form.parking} onChange={set('parking')} options={TRISTATE_OPTIONS} />
-        <SelectField
-          label='Stroller friendly'
-          value={form.strollerFriendly}
-          onChange={set('strollerFriendly')}
-          options={TRISTATE_OPTIONS}
-        />
         <SelectField
           label='Food available'
           value={form.foodAvailable}
@@ -278,7 +260,7 @@ export function PlaceForm({ id }: { id?: string }) {
           label='Status'
           value={form.status}
           onChange={(v) => set('status')(v as PlaceStatus)}
-          options={[['active', 'Active'], ['want_to_go', 'Want to go'], ['archived', 'Archived']]}
+          options={[['active', 'Active'], ['archived', 'Archived']]}
           allowEmpty={false}
         />
         <label className={ui.field}>
@@ -333,15 +315,24 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function NumberField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+/** `step` below 1 also switches the keypad to decimal, so a half hour can actually be typed. */
+function NumberField(
+  { label, value, onChange, step = 1 }: {
+    label: string;
+    value: string;
+    onChange: (v: string) => void;
+    step?: number;
+  },
+) {
   return (
     <label className={ui.field}>
       <span className={ui.fieldLabel}>{label}</span>
       <input
         className={ui.input}
         type='number'
-        inputMode='numeric'
+        inputMode={step < 1 ? 'decimal' : 'numeric'}
         min={0}
+        step={step}
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />

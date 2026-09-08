@@ -10,13 +10,13 @@ import type { Place } from '../types.ts';
 import ui from '../ui.module.css';
 import css from './Places.module.css';
 
-type Quick = 'all' | 'want_to_go' | 'indoor' | 'outdoor' | 'neverVisited' | 'favourites' | 'notRecent' | 'archived';
+type Quick = 'all' | 'wantToGo' | 'indoor' | 'outdoor' | 'favourites' | 'notRecent' | 'archived';
 
+// "Want to go" is derived, not stored: an active place we have not been to yet.
 const QUICK_FILTERS: { key: Quick; label: string; params: Record<string, string> }[] = [
   { key: 'all', label: 'All', params: {} },
-  { key: 'want_to_go', label: 'Want to go', params: { status: 'want_to_go' } },
+  { key: 'wantToGo', label: 'Want to go', params: { neverVisited: 'true' } },
   { key: 'favourites', label: 'Favourites', params: { minPriority: '3' } },
-  { key: 'neverVisited', label: 'Never visited', params: { neverVisited: 'true' } },
   { key: 'notRecent', label: 'Not visited in 90 days', params: { notVisitedInDays: '90' } },
   { key: 'indoor', label: 'Indoor', params: { environment: 'indoor' } },
   { key: 'outdoor', label: 'Outdoor', params: { environment: 'outdoor' } },

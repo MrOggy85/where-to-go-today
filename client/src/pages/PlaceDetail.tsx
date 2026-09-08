@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api.ts';
 import { navigate } from '../useHashRoute.ts';
-import { describeLastVisit, formatDate, formatMinutes, travelSummary } from '../format.ts';
+import { describeLastVisit, formatDate, formatHours, travelSummary } from '../format.ts';
 import { Chip } from '../components/Chip.tsx';
 import { SkeletonCard } from '../components/Skeleton.tsx';
 import { EmptyState } from '../components/EmptyState.tsx';
@@ -18,7 +18,6 @@ import {
   MapPin,
   Parking,
   Pencil,
-  Stroller,
   Toilet,
   Train,
   Trash,
@@ -212,8 +211,8 @@ function Attributes({ place }: { place: Place }) {
 
   if (place.driveMinutes !== undefined) add('drive', <Car size={16} />, `${place.driveMinutes} min drive`);
   if (place.trainMinutes !== undefined) add('train', <Train size={16} />, `${place.trainMinutes} min train`);
-  if (place.typicalDurationMinutes !== undefined) {
-    add('duration', <Clock size={16} />, `About ${formatMinutes(place.typicalDurationMinutes)}`);
+  if (place.typicalDurationHours !== undefined) {
+    add('duration', <Clock size={16} />, `About ${formatHours(place.typicalDurationHours)}`);
   }
   if (place.costLevel) {
     add('cost', <Coin size={16} />, place.costLevel === 'free' ? 'Free' : `${place.costLevel} cost`);
@@ -227,11 +226,6 @@ function Attributes({ place }: { place: Place }) {
   if (yes(place.parking)) add('parking', <Parking size={16} />, 'Parking');
   if (yes(place.toilets)) add('toilets', <Toilet size={16} />, 'Toilets');
   if (yes(place.foodAvailable)) add('food', <Food size={16} />, 'Food');
-  if (yes(place.strollerFriendly)) add('stroller', <Stroller size={16} />, 'Stroller friendly');
-
-  if (place.preferredCooldownDays !== undefined) {
-    add('cooldown', <Clock size={16} />, `${place.preferredCooldownDays} day cooldown`);
-  }
 
   const tags = place.categories.map((c) => <Chip key={`cat-${c}`}>{c}</Chip>);
 

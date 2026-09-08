@@ -1,5 +1,6 @@
 export type PlaceEnvironment = 'indoor' | 'outdoor' | 'mixed';
-export type PlaceStatus = 'want_to_go' | 'active' | 'archived';
+/** "Want to go" is not stored: it is `active` with no visits yet. */
+export type PlaceStatus = 'active' | 'archived';
 export type CostLevel = 'free' | 'low' | 'medium' | 'high';
 export type Tristate = 'yes' | 'no' | 'unknown';
 
@@ -22,7 +23,7 @@ export interface Place {
 
   driveMinutes?: number;
   trainMinutes?: number;
-  typicalDurationMinutes?: number;
+  typicalDurationHours?: number;
   costLevel?: CostLevel;
 
   goodForRain?: boolean;
@@ -32,12 +33,10 @@ export interface Place {
   shaded?: boolean;
 
   parking?: Tristate;
-  strollerFriendly?: Tristate;
   foodAvailable?: Tristate;
   toilets?: Tristate;
 
   priority: number;
-  preferredCooldownDays?: number;
 
   notes?: string;
 
@@ -90,7 +89,7 @@ export interface PlaceRow {
   website_url: string | null;
   drive_minutes: number | null;
   train_minutes: number | null;
-  typical_duration_minutes: number | null;
+  typical_duration_hours: number | null;
   cost_level: string | null;
   good_for_rain: number | null;
   good_for_hot_weather: number | null;
@@ -98,11 +97,9 @@ export interface PlaceRow {
   good_for_wind: number | null;
   shaded: number | null;
   parking: string | null;
-  stroller_friendly: string | null;
   food_available: string | null;
   toilets: string | null;
   priority: number;
-  preferred_cooldown_days: number | null;
   notes: string | null;
   created_at: string;
   updated_at: string;

@@ -1,15 +1,7 @@
 import type { Place } from '../db/types.ts';
 import type { WeatherSnapshot } from '../services/weather.ts';
 import { classifyWeather, type WeatherClass } from './weather.ts';
-import {
-  DEFAULT_COOLDOWN_DAYS,
-  MAX_REASONS,
-  NEVER_VISITED_BOOST,
-  PRIORITY_WEIGHT,
-  RECENCY_STEPS,
-  TRAVEL,
-  WEATHER,
-} from './config.ts';
+import { MAX_REASONS, NEVER_VISITED_BOOST, PRIORITY_WEIGHT, RECENCY_STEPS, TRAVEL, WEATHER } from './config.ts';
 
 export interface RecommendationContext {
   now: Date;
@@ -58,8 +50,8 @@ function isEligible(p: Place, ctx: RecommendationContext, w: WeatherClass | null
     if (best !== null && best > ctx.maxTravelMinutes) return false;
   }
 
-  if (ctx.availableMinutes !== undefined && p.typicalDurationMinutes !== undefined) {
-    if (p.typicalDurationMinutes > ctx.availableMinutes) return false;
+  if (ctx.availableMinutes !== undefined && p.typicalDurationHours !== undefined) {
+    if (p.typicalDurationHours * 60 > ctx.availableMinutes) return false;
   }
 
   // Rain rules out outdoor-only places unless they are explicitly rain-friendly.
@@ -157,8 +149,7 @@ function scorePlace(place: Place, ctx: RecommendationContext, w: WeatherClass | 
     recencyReasons.push('Never visited');
   } else {
     const days = daysSince(place.lastVisitedAt, ctx.now);
-    const cooldown = place.preferredCooldownDays ?? DEFAULT_COOLDOWN_DAYS;
-    const step = RECENCY_STEPS.find((s) => days / cooldown < s.maxFraction) ?? RECENCY_STEPS.at(-1)!;
+    const step = RECENCY_STEPS.find((s) => days < s.maxDays) ?? RECENCY_STEPS.at(-1)!;
     score += step.score;
     recencyReasons.push(describeLastVisit(days));
   }
@@ -178,8 +169,6 @@ function scorePlace(place: Place, ctx: RecommendationContext, w: WeatherClass | 
     score += (place.priority - 1) * PRIORITY_WEIGHT;
     extraReasons.push(place.priority >= 3 ? 'Favourite' : 'We like this one');
   }
-
-  if (place.status === 'want_to_go') extraReasons.push('On the want-to-go list');
 
   const reasons = dedupe([...weatherReasons, ...recencyReasons, ...travelReasons, ...extraReasons]);
 

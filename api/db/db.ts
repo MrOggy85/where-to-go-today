@@ -1,5 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 import { dirname, fromFileUrl, resolve } from 'jsr:@std/path@1';
+import { migrate } from './migrate.ts';
 
 // Resolved from this module rather than Deno.cwd() so `make dev`, `deno task start` and
 // the seed script all open the same file regardless of where they were launched.
@@ -14,6 +15,7 @@ if (path !== ':memory:') {
 export const db = new DatabaseSync(path);
 
 db.exec(Deno.readTextFileSync(fromFileUrl(new URL('./schema.sql', import.meta.url))));
+migrate(db);
 
 export function dbPath() {
   return path;

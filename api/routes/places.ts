@@ -51,7 +51,7 @@ function parsePlace(body: Body): PlaceInput {
     website_url: optUrl(body.websiteUrl, 'websiteUrl'),
     drive_minutes: optInt(body.driveMinutes, 'driveMinutes', 0, 1440),
     train_minutes: optInt(body.trainMinutes, 'trainMinutes', 0, 1440),
-    typical_duration_minutes: optInt(body.typicalDurationMinutes, 'typicalDurationMinutes', 0, 1440),
+    typical_duration_hours: optFloat(body.typicalDurationHours, 'typicalDurationHours', 0, 24),
     cost_level: optOneOf(body.costLevel, 'costLevel', COST_LEVELS),
     good_for_rain: optBool(body.goodForRain, 'goodForRain'),
     good_for_hot_weather: optBool(body.goodForHotWeather, 'goodForHotWeather'),
@@ -59,11 +59,9 @@ function parsePlace(body: Body): PlaceInput {
     good_for_wind: optBool(body.goodForWind, 'goodForWind'),
     shaded: optBool(body.shaded, 'shaded'),
     parking: optOneOf(body.parking, 'parking', TRISTATES),
-    stroller_friendly: optOneOf(body.strollerFriendly, 'strollerFriendly', TRISTATES),
     food_available: optOneOf(body.foodAvailable, 'foodAvailable', TRISTATES),
     toilets: optOneOf(body.toilets, 'toilets', TRISTATES),
     priority: optInt(body.priority, 'priority', 1, MAX_PRIORITY) ?? 1,
-    preferred_cooldown_days: optInt(body.preferredCooldownDays, 'preferredCooldownDays', 1, 3650),
     notes: optStr(body.notes, 'notes', MAX_NOTES),
   };
 }
