@@ -102,17 +102,16 @@ export function optOneOf<T extends string>(value: unknown, field: string, allowe
   return oneOf(value, field, allowed);
 }
 
-export function optCategories(value: unknown): string[] {
+/** Category ids as sent by the form. Ownership is checked separately, against the household. */
+export function optCategoryIds(value: unknown): string[] {
   if (value === undefined || value === null) return [];
-  if (!Array.isArray(value)) throw new ValidationError('categories must be an array');
+  if (!Array.isArray(value)) throw new ValidationError('categoryIds must be an array');
   if (value.length > MAX_CATEGORIES) throw new ValidationError('too many categories');
   const out = new Set<string>();
   for (const raw of value) {
-    if (typeof raw !== 'string') throw new ValidationError('categories must be strings');
-    const c = raw.trim().toLowerCase();
-    if (!c) continue;
-    if (c.length > MAX_CATEGORY) throw new ValidationError('category is too long');
-    out.add(c);
+    if (typeof raw !== 'string') throw new ValidationError('categoryIds must be strings');
+    const id = raw.trim();
+    if (id) out.add(id);
   }
   return [...out];
 }

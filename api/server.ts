@@ -8,6 +8,7 @@ import { getHealth } from './routes/health.ts';
 import { getMe, postLogin, postLogout, postProfile } from './routes/auth.ts';
 import { deletePlaceById, getPlaceById, getPlaces, postPlaces, putPlace } from './routes/places.ts';
 import { deleteVisitById, getPlaceVisits, getVisits, postPlaceVisit } from './routes/visits.ts';
+import { deleteCategoryById, getCategories, postCategories, putCategory } from './routes/categories.ts';
 import { getToday } from './routes/today.ts';
 
 // Anything not listed here falls through to the SPA and gets index.html with a 200.
@@ -94,6 +95,15 @@ async function routeApi(req: Request, url: URL, ip: string): Promise<{ resp: Res
     if (method === 'GET') return done(getPlaceById(auth, placeId), auth);
     if (method === 'PUT') return done(await putPlace(req, auth, placeId), auth);
     if (method === 'DELETE') return done(deletePlaceById(auth, placeId), auth);
+  }
+
+  if (path === '/api/categories' && method === 'GET') return done(getCategories(auth), auth);
+  if (path === '/api/categories' && method === 'POST') return done(await postCategories(req, auth), auth);
+
+  const categoryId = match(path, '/api/categories');
+  if (categoryId) {
+    if (method === 'PUT') return done(await putCategory(req, auth, categoryId), auth);
+    if (method === 'DELETE') return done(deleteCategoryById(auth, categoryId), auth);
   }
 
   if (path === '/api/visits' && method === 'GET') return done(getVisits(url, auth), auth);

@@ -16,6 +16,7 @@ import {
   setHouseholdPassword,
 } from '../api/db/households.ts';
 import { createPlace } from '../api/db/places.ts';
+import { createCategory } from '../api/db/categories.ts';
 import { createVisit } from '../api/db/visits.ts';
 import { hashPassword } from '../api/auth/password.ts';
 import type { PlaceInput } from '../api/db/places.ts';
@@ -64,7 +65,7 @@ function base(name: string, environment: PlaceInput['environment']): PlaceInput 
     name,
     status: 'active',
     environment,
-    categories: [],
+    categoryIds: [],
     address: null,
     latitude: null,
     longitude: null,
@@ -97,11 +98,22 @@ function seedDemoPlaces(householdId: string) {
   const profile = listProfiles(householdId)[0] ?? null;
   const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString();
 
-  const demo: { input: PlaceInput; visitedDaysAgo?: number[] }[] = [
+  // Categories are records now, so the demo names are resolved to ids as they are first used.
+  const categoryIds = new Map<string, string>();
+  const categoryId = (name: string) => {
+    let id = categoryIds.get(name);
+    if (!id) {
+      id = createCategory(householdId, name).id;
+      categoryIds.set(name, id);
+    }
+    return id;
+  };
+
+  const demo: { input: PlaceInput; categories?: string[]; visitedDaysAgo?: number[] }[] = [
     {
+      categories: ['museum', 'kids'],
       input: {
         ...base('Anpanman Museum', 'indoor'),
-        categories: ['museum', 'kids'],
         drive_minutes: 22,
         train_minutes: 35,
         typical_duration_hours: 3,
@@ -114,9 +126,9 @@ function seedDemoPlaces(householdId: string) {
       visitedDaysAgo: [114],
     },
     {
+      categories: ['park', 'playground'],
       input: {
         ...base('Kodomo no Kuni', 'outdoor'),
-        categories: ['park', 'playground'],
         drive_minutes: 30,
         typical_duration_hours: 4,
         good_for_hot_weather: 0,
@@ -128,9 +140,9 @@ function seedDemoPlaces(householdId: string) {
       visitedDaysAgo: [210],
     },
     {
+      categories: ['playground'],
       input: {
         ...base('Local indoor playground', 'indoor'),
-        categories: ['playground'],
         drive_minutes: 12,
         typical_duration_hours: 1.5,
         cost_level: 'low',
@@ -139,9 +151,9 @@ function seedDemoPlaces(householdId: string) {
       },
     },
     {
+      categories: ['park'],
       input: {
         ...base('Riverside park', 'outdoor'),
-        categories: ['park'],
         drive_minutes: 8,
         typical_duration_hours: 1,
         shaded: 0,
@@ -150,9 +162,9 @@ function seedDemoPlaces(householdId: string) {
       visitedDaysAgo: [3],
     },
     {
+      categories: ['aquarium'],
       input: {
         ...base('Aquarium', 'indoor'),
-        categories: ['aquarium'],
         drive_minutes: 50,
         train_minutes: 40,
         typical_duration_hours: 3.5,
@@ -161,9 +173,9 @@ function seedDemoPlaces(householdId: string) {
       },
     },
     {
+      categories: ['mall'],
       input: {
         ...base('Shopping mall', 'mixed'),
-        categories: ['mall'],
         drive_minutes: 15,
         typical_duration_hours: 2,
         good_for_rain: 1,
@@ -173,8 +185,11 @@ function seedDemoPlaces(householdId: string) {
     },
   ];
 
-  for (const { input, visitedDaysAgo } of demo) {
-    const place = createPlace(householdId, profile?.id ?? null, input);
+  for (const { input, categories, visitedDaysAgo } of demo) {
+    const place = createPlace(householdId, profile?.id ?? null, {
+      ...input,
+      categoryIds: (categories ?? []).map(categoryId),
+    });
     for (const d of visitedDaysAgo ?? []) {
       createVisit(householdId, place.id, profile?.id ?? null, { visitedAt: daysAgo(d), note: null, rating: null });
     }

@@ -227,7 +227,7 @@ function Attributes({ place }: { place: Place }) {
   if (yes(place.toilets)) add('toilets', <Toilet size={16} />, 'Toilets');
   if (yes(place.foodAvailable)) add('food', <Food size={16} />, 'Food');
 
-  const tags = place.categories.map((c) => <Chip key={`cat-${c}`}>{c}</Chip>);
+  const tags = place.categories.map((c) => <Chip key={c.id}>{c.name}</Chip>);
 
   if (!chips.length && !tags.length && !place.address) return null;
 

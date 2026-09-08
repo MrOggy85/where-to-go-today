@@ -1,14 +1,19 @@
 import { db, newId, nowIso, row, rows, run } from './db.ts';
-import type { CostLevel, Place, PlaceEnvironment, PlaceRow, PlaceStatus, Tristate } from './types.ts';
+import { replaceCategories } from './categories.ts';
+import type { Category, CostLevel, Place, PlaceEnvironment, PlaceRow, PlaceStatus, Tristate } from './types.ts';
 
-// group_concat with a unit separator: categories are free text and may contain commas.
-const SEP = String.fromCharCode(31);
-
+// Categories come back as JSON rather than a delimited string: they are rows now, so each
+// one carries an id as well as a name and a separator would have to encode both.
 const SELECT_PLACE = `
   SELECT p.*,
     (SELECT MAX(visited_at) FROM visits v WHERE v.place_id = p.id) AS last_visited_at,
     (SELECT COUNT(*) FROM visits v WHERE v.place_id = p.id) AS visit_count,
-    (SELECT group_concat(category, char(31)) FROM place_categories c WHERE c.place_id = p.id) AS categories
+    (SELECT json_group_array(json_object('id', id, 'name', name)) FROM (
+       SELECT c.id AS id, c.name AS name
+         FROM place_categories pc JOIN categories c ON c.id = pc.category_id
+        WHERE pc.place_id = p.id
+        ORDER BY c.name COLLATE NOCASE ASC
+     )) AS categories
   FROM places p
 `;
 
@@ -26,7 +31,7 @@ export function toPlace(r: PlaceRow): Place {
     householdId: r.household_id,
     name: r.name,
     status: r.status as PlaceStatus,
-    categories: r.categories ? r.categories.split(SEP).sort() : [],
+    categories: r.categories ? JSON.parse(r.categories) as Category[] : [],
     environment: r.environment as PlaceEnvironment,
     address: opt(r.address),
     latitude: opt(r.latitude),
@@ -58,8 +63,8 @@ export function toPlace(r: PlaceRow): Place {
 export interface PlaceFilters {
   status?: PlaceStatus;
   environment?: PlaceEnvironment;
-  category?: string;
-  /** Case-insensitive substring match on name, address and notes. */
+  categoryId?: string;
+  /** Case-insensitive substring match on name, address, notes and category names. */
   q?: string;
   neverVisited?: boolean;
   /** Only places whose last visit is older than N days (never-visited included). */
@@ -84,17 +89,20 @@ export function listPlaces(householdId: string, f: PlaceFilters = {}): Place[] {
     params.push(f.environment);
   }
 
-  if (f.category) {
-    where.push('EXISTS (SELECT 1 FROM place_categories c WHERE c.place_id = p.id AND c.category = ?)');
-    params.push(f.category.toLowerCase());
+  if (f.categoryId) {
+    where.push('EXISTS (SELECT 1 FROM place_categories pc WHERE pc.place_id = p.id AND pc.category_id = ?)');
+    params.push(f.categoryId);
   }
 
   if (f.q) {
+    // Category names are searched too, so typing "park" finds places tagged park.
     where.push(
-      "(p.name LIKE ? ESCAPE '\\' OR IFNULL(p.address,'') LIKE ? ESCAPE '\\' OR IFNULL(p.notes,'') LIKE ? ESCAPE '\\')",
+      `(p.name LIKE ? ESCAPE '\\' OR IFNULL(p.address,'') LIKE ? ESCAPE '\\' OR IFNULL(p.notes,'') LIKE ? ESCAPE '\\'
+        OR EXISTS (SELECT 1 FROM place_categories pc JOIN categories c ON c.id = pc.category_id
+                    WHERE pc.place_id = p.id AND c.name LIKE ? ESCAPE '\\'))`,
     );
     const like = `%${f.q.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
-    params.push(like, like, like);
+    params.push(like, like, like, like);
   }
 
   if (f.minPriority !== undefined) {
@@ -125,7 +133,8 @@ export interface PlaceInput {
   name: string;
   status: PlaceStatus;
   environment: PlaceEnvironment;
-  categories: string[];
+  /** Already narrowed to ids this household owns; see `ownedCategoryIds`. */
+  categoryIds: string[];
   address: string | null;
   latitude: number | null;
   longitude: number | null;
@@ -176,12 +185,6 @@ function columnValues(input: PlaceInput) {
   return COLUMNS.map((c) => (input as unknown as Record<string, unknown>)[c] ?? null);
 }
 
-function replaceCategories(placeId: string, categories: string[]) {
-  run('DELETE FROM place_categories WHERE place_id = ?', placeId);
-  const stmt = db.prepare('INSERT OR IGNORE INTO place_categories (place_id, category) VALUES (?, ?)');
-  for (const c of categories) stmt.run(placeId, c);
-}
-
 export function createPlace(householdId: string, profileId: string | null, input: PlaceInput): Place {
   const id = newId();
   const at = nowIso();
@@ -194,7 +197,7 @@ export function createPlace(householdId: string, profileId: string | null, input
   db.exec('BEGIN');
   try {
     run(sql, id, householdId, ...columnValues(input), at, at, profileId);
-    replaceCategories(id, input.categories);
+    replaceCategories(id, input.categoryIds);
     db.exec('COMMIT');
   } catch (e) {
     db.exec('ROLLBACK');
@@ -214,7 +217,7 @@ export function updatePlace(householdId: string, id: string, input: PlaceInput):
   db.exec('BEGIN');
   try {
     run(sql, ...columnValues(input), nowIso(), householdId, id);
-    replaceCategories(id, input.categories);
+    replaceCategories(id, input.categoryIds);
     db.exec('COMMIT');
   } catch (e) {
     db.exec('ROLLBACK');
@@ -246,14 +249,4 @@ export function deletePlace(householdId: string, id: string): DeleteResult {
 
   run('DELETE FROM places WHERE household_id = ? AND id = ?', householdId, id);
   return 'deleted';
-}
-
-export function listCategories(householdId: string): string[] {
-  return rows<{ category: string }>(
-    `SELECT DISTINCT c.category FROM place_categories c
-       JOIN places p ON p.id = c.place_id
-      WHERE p.household_id = ?
-      ORDER BY c.category`,
-    householdId,
-  ).map((r) => r.category);
 }

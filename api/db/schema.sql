@@ -75,13 +75,26 @@ CREATE INDEX IF NOT EXISTS places_household_status ON places(household_id, statu
 CREATE INDEX IF NOT EXISTS places_drive_minutes ON places(drive_minutes);
 CREATE INDEX IF NOT EXISTS places_train_minutes ON places(train_minutes);
 
-CREATE TABLE IF NOT EXISTS place_categories (
-  place_id TEXT NOT NULL REFERENCES places(id) ON DELETE CASCADE,
-  category TEXT NOT NULL,
-  PRIMARY KEY (place_id, category)
+-- Categories are household-owned records, not free text on the place, so they can be
+-- renamed in one place and offered as a closed list when editing.
+CREATE TABLE IF NOT EXISTS categories (
+  id           TEXT PRIMARY KEY,
+  household_id TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+  name         TEXT NOT NULL,
+  created_at   TEXT NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS place_categories_category ON place_categories(category);
+-- NOCASE so "Park" cannot be added alongside "park".
+CREATE UNIQUE INDEX IF NOT EXISTS categories_household_name
+  ON categories(household_id, name COLLATE NOCASE);
+
+CREATE TABLE IF NOT EXISTS place_categories (
+  place_id    TEXT NOT NULL REFERENCES places(id) ON DELETE CASCADE,
+  category_id TEXT NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+  PRIMARY KEY (place_id, category_id)
+);
+
+CREATE INDEX IF NOT EXISTS place_categories_category ON place_categories(category_id);
 
 -- Append-only outing log. lastVisitedAt is derived with MAX(visited_at), never stored.
 CREATE TABLE IF NOT EXISTS visits (

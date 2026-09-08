@@ -4,6 +4,16 @@ export type PlaceStatus = 'active' | 'archived';
 export type CostLevel = 'free' | 'low' | 'medium' | 'high';
 export type Tristate = 'yes' | 'no' | 'unknown';
 
+export interface Category {
+  id: string;
+  name: string;
+}
+
+/** A category plus how many places carry it, for the manage screen and delete warning. */
+export interface CategoryWithCount extends Category {
+  placeCount: number;
+}
+
 export interface Place {
   id: string;
   householdId: string;
@@ -11,7 +21,7 @@ export interface Place {
   name: string;
   status: PlaceStatus;
 
-  categories: string[];
+  categories: Category[];
   environment: PlaceEnvironment;
 
   address?: string;
@@ -106,5 +116,6 @@ export interface PlaceRow {
   created_by_profile_id: string | null;
   last_visited_at: string | null;
   visit_count: number;
+  /** JSON array of `{ id, name }`, built by the SELECT rather than a second query. */
   categories: string | null;
 }

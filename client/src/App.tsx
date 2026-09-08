@@ -6,11 +6,19 @@ import { Today } from './pages/Today.tsx';
 import { Places } from './pages/Places.tsx';
 import { PlaceDetail } from './pages/PlaceDetail.tsx';
 import { PlaceForm } from './pages/PlaceForm.tsx';
-import { ChevronRight, Compass, MapPin } from './icons.tsx';
+import { Categories } from './pages/Categories.tsx';
+import { ChevronRight, Compass, MapPin, Tag } from './icons.tsx';
 import { ConfirmSheet } from './components/Sheet.tsx';
 import type { Me } from './types.ts';
 import css from './App.module.css';
 import './global.css';
+
+/** `owns` lists the routes that light a tab up, so pushed views keep their parent lit. */
+const TABS: { to: string; label: string; icon: typeof Compass; owns: Route['name'][] }[] = [
+  { to: '/', label: 'Today', icon: Compass, owns: ['today'] },
+  { to: '/places', label: 'Places', icon: MapPin, owns: ['places', 'newPlace', 'place', 'editPlace'] },
+  { to: '/categories', label: 'Categories', icon: Tag, owns: ['categories'] },
+];
 
 /**
  * Detail and form routes are pushed views and need a way back. Resolved to a parent route
@@ -89,27 +97,25 @@ export function App() {
         {route.name === 'newPlace' && <PlaceForm />}
         {route.name === 'editPlace' && <PlaceForm id={route.id} />}
         {route.name === 'place' && <PlaceDetail id={route.id} />}
+        {route.name === 'categories' && <Categories />}
       </main>
 
       <nav className={css.nav}>
-        <button
-          type='button'
-          className={route.name === 'today' ? css.navItemActive : css.navItem}
-          aria-current={route.name === 'today' ? 'page' : undefined}
-          onClick={() => navigate('/')}
-        >
-          <Compass size={22} />
-          Today
-        </button>
-        <button
-          type='button'
-          className={route.name === 'today' ? css.navItem : css.navItemActive}
-          aria-current={route.name === 'today' ? undefined : 'page'}
-          onClick={() => navigate('/places')}
-        >
-          <MapPin size={22} />
-          Places
-        </button>
+        {TABS.map((tab) => {
+          const active = tab.owns.includes(route.name);
+          return (
+            <button
+              key={tab.to}
+              type='button'
+              className={active ? css.navItemActive : css.navItem}
+              aria-current={active ? 'page' : undefined}
+              onClick={() => navigate(tab.to)}
+            >
+              <tab.icon size={22} />
+              {tab.label}
+            </button>
+          );
+        })}
       </nav>
 
       <ConfirmSheet

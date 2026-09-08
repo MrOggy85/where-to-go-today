@@ -1,0 +1,85 @@
+.title {
+  composes: title from '../ui.module.css';
+  margin-bottom: var(--space-2);
+}
+
+/* Input takes the room; the button stays at its natural width. */
+.addRow {
+  display: flex;
+  gap: var(--space-2);
+  margin: var(--space-4) 0;
+}
+
+.addRow input {
+  flex: 1;
+  min-width: 0;
+}
+
+.addButton {
+  composes: buttonPrimary from '../ui.module.css';
+  flex: none;
+}
+
+/* ---- list ---- */
+
+.item {
+  align-items: center;
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+}
+
+.item input {
+  flex: 1;
+  min-width: 0;
+}
+
+.itemBody {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.name {
+  font-size: var(--text-base);
+  font-weight: var(--weight-semi);
+  letter-spacing: var(--tracking-tight);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.action {
+  align-items: center;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--ink-2);
+  cursor: pointer;
+  display: flex;
+  flex: none;
+  justify-content: center;
+  min-height: var(--tap);
+  min-width: var(--tap);
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+
+.action:active {
+  background: var(--surface-hover);
+}
+
+.action:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.actionDanger {
+  composes: action;
+  color: var(--danger);
+}

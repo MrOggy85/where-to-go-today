@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { api } from '../api.ts';
 import { navigate } from '../useHashRoute.ts';
 import { SkeletonCard } from '../components/Skeleton.tsx';
-import { ChevronDown } from '../icons.tsx';
-import type { CostLevel, Place, PlaceEnvironment, PlaceStatus, Tristate } from '../types.ts';
+import { ChevronDown, Close, Plus } from '../icons.tsx';
+import type { Category, CostLevel, Place, PlaceEnvironment, PlaceStatus, Tristate } from '../types.ts';
 import ui from '../ui.module.css';
 import css from './PlaceForm.module.css';
 
@@ -15,7 +15,8 @@ interface FormState {
   googleMapsUrl: string;
   websiteUrl: string;
   address: string;
-  categories: string;
+  /** Category ids. Chosen from the household's list; new ones are created before saving. */
+  categoryIds: string[];
   driveMinutes: string;
   trainMinutes: string;
   typicalDurationHours: string;
@@ -39,7 +40,7 @@ const EMPTY: FormState = {
   googleMapsUrl: '',
   websiteUrl: '',
   address: '',
-  categories: '',
+  categoryIds: [],
   driveMinutes: '',
   trainMinutes: '',
   typicalDurationHours: '',
@@ -66,7 +67,7 @@ function fromPlace(p: Place): FormState {
     googleMapsUrl: p.googleMapsUrl ?? '',
     websiteUrl: p.websiteUrl ?? '',
     address: p.address ?? '',
-    categories: p.categories.join(', '),
+    categoryIds: p.categories.map((c) => c.id),
     driveMinutes: num(p.driveMinutes),
     trainMinutes: num(p.trainMinutes),
     typicalDurationHours: num(p.typicalDurationHours),
@@ -96,7 +97,7 @@ function toBody(f: FormState) {
     googleMapsUrl: text(f.googleMapsUrl),
     websiteUrl: text(f.websiteUrl),
     address: text(f.address),
-    categories: f.categories.split(',').map((c) => c.trim()).filter(Boolean),
+    categoryIds: f.categoryIds,
     driveMinutes: num(f.driveMinutes),
     trainMinutes: num(f.trainMinutes),
     typicalDurationHours: num(f.typicalDurationHours),
@@ -116,6 +117,7 @@ function toBody(f: FormState) {
 
 export function PlaceForm({ id }: { id?: string }) {
   const [form, setForm] = useState<FormState>(EMPTY);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(!!id);
@@ -127,6 +129,18 @@ export function PlaceForm({ id }: { id?: string }) {
       .catch((err) => setError(err instanceof Error ? err.message : 'could not load this place'))
       .finally(() => setLoading(false));
   }, [id]);
+
+  // The picker offers the household's categories, so the field is a closed list.
+  useEffect(() => {
+    api.categories().then((d) => setCategories(d.categories)).catch(() => setCategories([]));
+  }, []);
+
+  /** Creating from the form returns the new id straight into the selection. */
+  async function addCategory(name: string) {
+    const { category } = await api.createCategory(name);
+    setCategories((list) => [...list, category].sort((a, b) => a.name.localeCompare(b.name)));
+    setForm((f) => ({ ...f, categoryIds: [...f.categoryIds, category.id] }));
+  }
 
   const set = <K extends keyof FormState>(key: K) => (value: FormState[K]) => setForm((f) => ({ ...f, [key]: value }));
 
@@ -263,15 +277,12 @@ export function PlaceForm({ id }: { id?: string }) {
           options={[['active', 'Active'], ['archived', 'Archived']]}
           allowEmpty={false}
         />
-        <label className={ui.field}>
-          <span className={ui.fieldLabel}>Categories (comma separated)</span>
-          <input
-            className={ui.input}
-            placeholder='park, playground'
-            value={form.categories}
-            onChange={(e) => set('categories')(e.target.value)}
-          />
-        </label>
+        <CategoryPicker
+          all={categories}
+          selected={form.categoryIds}
+          onChange={set('categoryIds')}
+          onCreate={addCategory}
+        />
         <label className={ui.field}>
           <span className={ui.fieldLabel}>Notes</span>
           <textarea
@@ -298,6 +309,112 @@ export function PlaceForm({ id }: { id?: string }) {
         </div>
       </div>
     </form>
+  );
+}
+
+const NEW_CATEGORY = '__new__';
+
+/**
+ * Selected categories read as removable chips; the select adds one more from what is left.
+ * A select rather than free text is the point: the same category cannot be spelled two ways.
+ */
+function CategoryPicker(
+  { all, selected, onChange, onCreate }: {
+    all: Category[];
+    selected: string[];
+    onChange: (ids: string[]) => void;
+    onCreate: (name: string) => Promise<void>;
+  },
+) {
+  const [creating, setCreating] = useState(false);
+  const [name, setName] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const chosen = selected.map((id) => all.find((c) => c.id === id)).filter((c): c is Category => !!c);
+  const available = all.filter((c) => !selected.includes(c.id));
+
+  async function create() {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+
+    setError(null);
+    try {
+      await onCreate(trimmed);
+      setName('');
+      setCreating(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'could not add that category');
+    }
+  }
+
+  return (
+    <div className={ui.field}>
+      <span className={ui.fieldLabel}>Categories</span>
+
+      {chosen.length > 0 && (
+        <div className={css.categoryChips}>
+          {chosen.map((c) => (
+            <span key={c.id} className={css.categoryChip}>
+              {c.name}
+              <button
+                type='button'
+                className={css.categoryRemove}
+                aria-label={`Remove ${c.name}`}
+                onClick={() => onChange(selected.filter((id) => id !== c.id))}
+              >
+                <Close size={14} />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {creating
+        ? (
+          <div className={css.categoryNew}>
+            <input
+              className={ui.input}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder='Category name'
+              aria-label='New category name'
+              maxLength={40}
+              autoFocus
+              // Enter would otherwise submit the place form instead of adding the category.
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  create();
+                }
+                if (e.key === 'Escape') setCreating(false);
+              }}
+            />
+            <button type='button' className={css.categoryAdd} onClick={create} disabled={!name.trim()}>
+              <Plus size={18} />
+              Add
+            </button>
+          </div>
+        )
+        : (
+          <select
+            className={ui.select}
+            value=''
+            aria-label='Add a category'
+            onChange={(e) => {
+              const value = e.target.value;
+              if (!value) return;
+              if (value === NEW_CATEGORY) setCreating(true);
+              else onChange([...selected, value]);
+            }}
+          >
+            <option value=''>{available.length ? 'Add a category…' : 'All categories added'}</option>
+            {available.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            <option value={NEW_CATEGORY}>+ New category…</option>
+          </select>
+        )}
+
+      {error && <p className={ui.error}>{error}</p>}
+    </div>
   );
 }
 

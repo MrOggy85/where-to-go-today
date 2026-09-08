@@ -3,12 +3,12 @@ import {
   createPlace,
   deletePlace,
   getPlace,
-  listCategories,
   listPlaces,
   type PlaceFilters,
   type PlaceInput,
   updatePlace,
 } from '../db/places.ts';
+import { listCategories, ownedCategoryIds } from '../db/categories.ts';
 import { listVisitsForPlace } from '../db/visits.ts';
 import { MAX_PRIORITY } from '../recommendations/config.ts';
 import {
@@ -22,7 +22,7 @@ import {
   MAX_URL,
   oneOf,
   optBool,
-  optCategories,
+  optCategoryIds,
   optFloat,
   optInt,
   optOneOf,
@@ -38,12 +38,13 @@ import {
 type Body = Record<string, any>;
 
 /** Only name, environment and status have defaults; a sparse place is a valid place. */
-function parsePlace(body: Body): PlaceInput {
+function parsePlace(body: Body, householdId: string): PlaceInput {
   return {
     name: str(body.name, 'name', MAX_NAME),
     status: body.status === undefined ? 'active' : oneOf(body.status, 'status', STATUSES),
     environment: oneOf(body.environment, 'environment', ENVIRONMENTS),
-    categories: optCategories(body.categories),
+    // Narrowed against the household: an id from the client never scopes data on its own.
+    categoryIds: ownedCategoryIds(householdId, optCategoryIds(body.categoryIds)),
     address: optStr(body.address, 'address', MAX_ADDRESS),
     latitude: optFloat(body.latitude, 'latitude', -90, 90),
     longitude: optFloat(body.longitude, 'longitude', -180, 180),
@@ -92,8 +93,8 @@ export function getPlaces(url: URL, auth: Auth): Response {
     const environment = params.get('environment');
     if (environment) filters.environment = oneOf(environment, 'environment', ENVIRONMENTS);
 
-    const category = params.get('category');
-    if (category) filters.category = category.slice(0, 40);
+    const categoryId = params.get('categoryId');
+    if (categoryId) filters.categoryId = categoryId;
 
     const q = params.get('q');
     if (q) filters.q = q.slice(0, 100);
@@ -127,7 +128,7 @@ export async function postPlaces(req: Request, auth: Auth): Promise<Response> {
   if (!parsed.ok) return parsed.resp;
 
   try {
-    const place = createPlace(auth.householdId, auth.profile?.id ?? null, parsePlace(parsed.value));
+    const place = createPlace(auth.householdId, auth.profile?.id ?? null, parsePlace(parsed.value, auth.householdId));
     return jsonResponse({ place }, 201);
   } catch (e) {
     if (e instanceof ValidationError) return errorResponse(e.message);
@@ -141,7 +142,7 @@ export async function putPlace(req: Request, auth: Auth, id: string): Promise<Re
   if (!parsed.ok) return parsed.resp;
 
   try {
-    const place = updatePlace(auth.householdId, id, parsePlace(parsed.value));
+    const place = updatePlace(auth.householdId, id, parsePlace(parsed.value, auth.householdId));
     if (!place) return errorResponse('place not found', 404);
     return jsonResponse({ place });
   } catch (e) {

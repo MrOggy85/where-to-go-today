@@ -1,4 +1,4 @@
-import type { Me, Place, TodayResponse, Visit, WeatherPicks } from './types.ts';
+import type { Category, CategoryWithCount, Me, Place, TodayResponse, Visit, WeatherPicks } from './types.ts';
 
 export class ApiError extends Error {
   constructor(message: string, readonly status: number) {
@@ -43,8 +43,19 @@ export const api = {
 
   places: (filters: Record<string, string> = {}) => {
     const params = new URLSearchParams(Object.entries(filters).filter(([, v]) => v));
-    return request<{ places: Place[]; categories: string[] }>(`/api/places?${params}`);
+    return request<{ places: Place[]; categories: CategoryWithCount[] }>(`/api/places?${params}`);
   },
+
+  categories: () => request<{ categories: CategoryWithCount[] }>('/api/categories'),
+
+  createCategory: (name: string) =>
+    request<{ category: Category }>('/api/categories', { method: 'POST', body: JSON.stringify({ name }) }),
+
+  renameCategory: (id: string, name: string) =>
+    request<{ category: Category }>(`/api/categories/${id}`, { method: 'PUT', body: JSON.stringify({ name }) }),
+
+  deleteCategory: (id: string) =>
+    request<{ result: string; untagged: number }>(`/api/categories/${id}`, { method: 'DELETE' }),
 
   place: (id: string) => request<{ place: Place; visits: Visit[] }>(`/api/places/${id}`),
 

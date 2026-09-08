@@ -4,12 +4,22 @@ export type PlaceStatus = 'active' | 'archived';
 export type CostLevel = 'free' | 'low' | 'medium' | 'high';
 export type Tristate = 'yes' | 'no' | 'unknown';
 
+export interface Category {
+  id: string;
+  name: string;
+}
+
+/** The manage screen and the delete warning both need the usage count. */
+export interface CategoryWithCount extends Category {
+  placeCount: number;
+}
+
 export interface Place {
   id: string;
   householdId: string;
   name: string;
   status: PlaceStatus;
-  categories: string[];
+  categories: Category[];
   environment: PlaceEnvironment;
   address?: string;
   latitude?: number;

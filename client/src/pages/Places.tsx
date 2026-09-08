@@ -6,7 +6,7 @@ import { Chip, ChipButton } from '../components/Chip.tsx';
 import { SkeletonList } from '../components/Skeleton.tsx';
 import { EmptyState } from '../components/EmptyState.tsx';
 import { ChevronRight, MapPin, Plus, Search, Sparkle } from '../icons.tsx';
-import type { Place } from '../types.ts';
+import type { CategoryWithCount, Place } from '../types.ts';
 import ui from '../ui.module.css';
 import css from './Places.module.css';
 
@@ -25,23 +25,23 @@ const QUICK_FILTERS: { key: Quick; label: string; params: Record<string, string>
 
 export function Places() {
   const [quick, setQuick] = useState<Quick>('all');
-  const [category, setCategory] = useState('');
+  const [categoryId, setCategoryId] = useState('');
   const [q, setQ] = useState('');
   const [places, setPlaces] = useState<Place[] | null>(null);
-  const [categories, setCategories] = useState<string[]>([]);
+  const [categories, setCategories] = useState<CategoryWithCount[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
     const filter = QUICK_FILTERS.find((f) => f.key === quick)!;
     try {
-      const data = await api.places({ ...filter.params, category, q });
+      const data = await api.places({ ...filter.params, categoryId, q });
       setPlaces(data.places);
       setCategories(data.categories);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'could not load places');
     }
-  }, [quick, category, q]);
+  }, [quick, categoryId, q]);
 
   // Debounced so typing in the search box does not fire a request per keystroke.
   useEffect(() => {
@@ -49,7 +49,7 @@ export function Places() {
     return () => clearTimeout(timer);
   }, [load, q]);
 
-  const filtered = quick !== 'all' || !!category || !!q;
+  const filtered = quick !== 'all' || !!categoryId || !!q;
 
   return (
     <div>
@@ -80,11 +80,11 @@ export function Places() {
           <select
             className={css.categorySelect}
             aria-label='Filter by category'
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
+            value={categoryId}
+            onChange={(e) => setCategoryId(e.target.value)}
           >
             <option value=''>Any category</option>
-            {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+            {categories.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.placeCount})</option>)}
           </select>
         )}
       </div>
@@ -107,7 +107,7 @@ export function Places() {
               actionLabel='Clear filters'
               onAction={() => {
                 setQuick('all');
-                setCategory('');
+                setCategoryId('');
                 setQ('');
               }}
             />
@@ -140,7 +140,7 @@ export function Places() {
             </span>
             {p.categories.length > 0 && (
               <span className={css.chips}>
-                {p.categories.slice(0, 3).map((c) => <Chip key={c}>{c}</Chip>)}
+                {p.categories.slice(0, 3).map((c) => <Chip key={c.id}>{c.name}</Chip>)}
               </span>
             )}
           </span>

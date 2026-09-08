@@ -48,6 +48,15 @@ export function MapPin(props: IconProps) {
   );
 }
 
+export function Tag(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d='M3 12.6V4a1 1 0 0 1 1-1h8.6a2 2 0 0 1 1.4.6l6.4 6.4a2 2 0 0 1 0 2.8l-7.6 7.6a2 2 0 0 1-2.8 0L3.6 14a2 2 0 0 1-.6-1.4Z' />
+      <circle cx='8' cy='8' r='1.4' />
+    </Svg>
+  );
+}
+
 /* ---- weather ---- */
 
 export function Umbrella(props: IconProps) {

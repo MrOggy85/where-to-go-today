@@ -202,7 +202,8 @@ interface Place {
   name: string;
   status: PlaceStatus;
 
-  categories: string[];
+  // Household-owned records, not free text: chosen from a list, renamed in one place.
+  categories: { id: string; name: string }[];
   environment: PlaceEnvironment;
 
   address?: string;
@@ -520,10 +521,12 @@ Useful filters:
 - want to go (active and never visited)
 - indoor
 - outdoor
-- category
+- category (by id, from the household's list)
 - favorites/high priority
 - not visited recently
 - archived
+
+Free-text search covers name, address, notes and category names.
 
 ### Place detail
 
@@ -544,6 +547,18 @@ Contains:
 Fast form with progressive disclosure.
 
 Do not present every possible field at once on mobile.
+
+Categories are picked from the household's list rather than typed, so the same idea cannot
+be spelled two ways. Creating one from inside the form is allowed; that is the only way a
+category is added without visiting the manage screen.
+
+### Categories
+
+Manage the household's categories: add, rename, delete.
+
+Each row shows how many places carry it. Deleting removes the tag from those places rather
+than refusing, and the confirmation says how many are affected. The places themselves are
+never touched.
 
 ### Diary
 
@@ -662,6 +677,7 @@ households
 profiles
 sessions
 places
+categories
 place_categories
 visits
 photos
@@ -683,6 +699,8 @@ Useful indexes should include:
 places(status)
 places(drive_minutes)
 places(train_minutes)
+categories(household_id, name COLLATE NOCASE) UNIQUE
+place_categories(category_id)
 visits(place_id, visited_at DESC)
 visits(visited_at DESC)
 photos(visit_id)
@@ -1086,6 +1104,8 @@ An implementation agent may proceed with these defaults:
 - store drive time and train time separately
 - a place is normally in range if either drive or train time is <= 45 minutes
 - typical visit length is recorded in hours, not minutes
+- categories are household-owned records chosen from a list, never free text
+- deleting a category untags its places rather than being refused
 - a place is either active or archived; "want to go" is derived from active and never visited
 - no hard post-visit cooldown, and no per-place cooldown override
 - never-visited places get only a small boost
