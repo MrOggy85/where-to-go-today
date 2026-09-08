@@ -16,6 +16,24 @@ update it in the same change when a new requirement conflicts with it.
 - No new runtime dependencies without a real need. No ORM, router, state library or UI
   framework.
 
+## Design system
+
+- Every colour, size, radius, shadow and duration comes from `client/src/tokens.css`.
+  Components must not hardcode them.
+- Shared surfaces, buttons and form controls live in `client/src/ui.module.css`. Page
+  stylesheets compose from it.
+- **A page class must never override a property its composed base already sets.** esbuild
+  cannot order declarations composed across files and warns
+  `undefined-composes-from`. Add the variant to `ui.module.css` instead, where same-file
+  composition is deterministic.
+- Icons are inline SVG in `client/src/icons.tsx` on a 24px grid, 1.75 stroke,
+  `currentColor`. No icon font, no sprite sheet.
+- No `window.confirm` or `alert`; use `components/Sheet.tsx`. No bare `Loading…`; use
+  `components/Skeleton.tsx`.
+- Interactive targets are at least `--tap` (44px). Animation goes through `--dur`/`--ease`
+  so `prefers-reduced-motion` disables it in one place.
+- An unset place attribute renders nothing at all. "Unknown" is not "no".
+
 ## Conventions
 
 - Deno + `Deno.serve` for the api, React + CSS Modules + esbuild for the client.

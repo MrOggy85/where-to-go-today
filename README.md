@@ -57,6 +57,7 @@ make seed PASSWORD=<new password> FORCE=--force
 | `make start`   | Build, then run the server with narrow permissions    |
 | `make check`   | Type-check the api, scripts and client                |
 | `make fmt`     | Format everything                                     |
+| `make icons`   | Regenerate the app icons (output is committed)        |
 
 ## Layout
 
@@ -73,8 +74,16 @@ api/
 client/
   build.ts              esbuild production build
   build-watch.ts        esbuild watch build used by `make dev`
-  src/                  React app, CSS Modules, hash routing
-scripts/seed.ts
+  static/               index.html, manifest and app icons
+  src/
+    tokens.css          the whole visual system: colour, type, space, motion
+    ui.module.css       shared surfaces, buttons, form controls
+    icons.tsx           inline SVG icon set
+    components/         Chip, Sheet, Skeleton, EmptyState
+    pages/              one component and one stylesheet each
+scripts/
+  seed.ts               household, profiles and demo data
+  make-icons.ts         generates the app icons, no image dependency
 ```
 
 ## Configuration

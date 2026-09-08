@@ -14,3 +14,22 @@ export function describeLastVisit(lastVisitedAt?: string): string {
 export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
+
+/** The Today page title, e.g. "Sunday, 7 September". */
+export function formatToday(now = new Date()): string {
+  return now.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
+/** Both travel times when known, never collapsed into one number (PROJECT.md section 13). */
+export function travelSummary(p: { driveMinutes?: number; trainMinutes?: number }): string {
+  const parts: string[] = [];
+  if (p.driveMinutes !== undefined) parts.push(`${p.driveMinutes} min drive`);
+  if (p.trainMinutes !== undefined) parts.push(`${p.trainMinutes} min train`);
+  return parts.join(' / ');
+}
+
+export function formatMinutes(min: number): string {
+  if (min < 60) return `${min} min`;
+  const hours = min / 60;
+  return Number.isInteger(hours) ? `${hours} h` : `${hours.toFixed(1)} h`;
+}

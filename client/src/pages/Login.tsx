@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { api } from '../api.ts';
+import { ChevronRight, Compass } from '../icons.tsx';
 import type { Me } from '../types.ts';
 import ui from '../ui.module.css';
+import css from './Login.module.css';
 
 interface Props {
   me: Me;
@@ -35,50 +37,59 @@ export function Login({ me, onChange }: Props) {
       onChange(await api.me());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'could not select profile');
-    } finally {
       setBusy(false);
     }
   }
 
-  if (me.authenticated && me.profiles) {
-    return (
-      <div>
-        <h2>Who is using the app?</h2>
-        <div className={ui.spacer} />
-        {error && <p className={ui.error}>{error}</p>}
-        {me.profiles.map((p) => (
-          <button
-            key={p.id}
-            type='button'
-            className={ui.buttonWide}
-            disabled={busy}
-            onClick={() => choose(p.id)}
-          >
-            {p.name}
-          </button>
-        ))}
-      </div>
-    );
-  }
+  const picking = me.authenticated && me.profiles;
 
   return (
-    <form onSubmit={submit}>
-      <h2>Sign in</h2>
-      <div className={ui.spacer} />
+    <div>
+      <div className={css.brand}>
+        <span className={css.mark}>
+          <Compass size={28} />
+        </span>
+        <h1 className={css.wordmark}>What should we do today?</h1>
+        <p className={css.sub}>{picking ? 'Who is using the app?' : 'A private family outing planner'}</p>
+      </div>
+
       {error && <p className={ui.error}>{error}</p>}
-      <label className={ui.field}>
-        <span className={ui.label}>Household password</span>
-        <input
-          className={ui.input}
-          type='password'
-          autoComplete='current-password'
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-      </label>
-      <button className={ui.buttonWide} type='submit' disabled={busy || !password}>
-        {busy ? 'Signing in…' : 'Sign in'}
-      </button>
-    </form>
+
+      {picking
+        ? (
+          <div className={css.profiles}>
+            {me.profiles!.map((p) => (
+              <button
+                key={p.id}
+                type='button'
+                className={css.profile}
+                disabled={busy}
+                onClick={() => choose(p.id)}
+              >
+                <span className={css.initial}>{p.name.slice(0, 1).toUpperCase()}</span>
+                <span className={css.profileName}>{p.name}</span>
+                <ChevronRight size={20} className={css.chevron} />
+              </button>
+            ))}
+          </div>
+        )
+        : (
+          <form className={ui.cardRoomy} onSubmit={submit}>
+            <label className={ui.field}>
+              <span className={ui.fieldLabel}>Household password</span>
+              <input
+                className={ui.input}
+                type='password'
+                autoComplete='current-password'
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </label>
+            <button className={css.submit} type='submit' disabled={busy || !password}>
+              {busy ? 'Signing in…' : 'Sign in'}
+            </button>
+          </form>
+        )}
+    </div>
   );
 }

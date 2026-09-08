@@ -1,0 +1,59 @@
+.chip {
+  align-items: center;
+  background: var(--surface-sunk);
+  border: none;
+  border-radius: var(--radius-pill);
+  color: var(--ink-2);
+  display: inline-flex;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  gap: var(--space-1);
+  line-height: 1;
+  padding: var(--space-2) var(--space-3);
+  white-space: nowrap;
+}
+
+.accent {
+  composes: chip;
+  background: var(--accent-wash);
+  color: var(--accent-ink);
+}
+
+.positive {
+  composes: chip;
+  background: var(--positive-wash);
+  color: var(--positive);
+}
+
+.icon {
+  flex: none;
+  /* Optically centres a 24-grid glyph against a 14px cap height. */
+  margin-left: -1px;
+}
+
+/* ---- selectable variant, used by the filter row and weather picker ---- */
+
+.selectable {
+  composes: chip;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line);
+  cursor: pointer;
+  min-height: 38px;
+  padding: 0 var(--space-4);
+  transition:
+    background var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease),
+    color var(--dur) var(--ease),
+    transform var(--dur) var(--ease);
+}
+
+.selectable:active {
+  transform: scale(0.96);
+}
+
+.selected {
+  composes: selectable;
+  background: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--ink);
+  color: var(--canvas);
+}

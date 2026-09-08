@@ -1,17 +1,41 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api.ts';
 import { navigate } from '../useHashRoute.ts';
+import { describeLastVisit, formatDate, formatMinutes, travelSummary } from '../format.ts';
+import { Chip } from '../components/Chip.tsx';
+import { SkeletonCard } from '../components/Skeleton.tsx';
+import { EmptyState } from '../components/EmptyState.tsx';
+import { type ConfirmRequest, ConfirmSheet } from '../components/Sheet.tsx';
+import {
+  Archive,
+  Calendar,
+  Car,
+  Check,
+  Clock,
+  Coin,
+  ExternalLink,
+  Food,
+  MapPin,
+  Parking,
+  Pencil,
+  Stroller,
+  Toilet,
+  Train,
+  Trash,
+  Tree,
+  Umbrella,
+} from '../icons.tsx';
 import type { Place, Tristate, Visit } from '../types.ts';
-import { describeLastVisit, formatDate } from '../format.ts';
-import { travelSummary } from './Places.tsx';
-import { formatMinutes } from './Today.tsx';
 import ui from '../ui.module.css';
+import css from './PlaceDetail.module.css';
 
 export function PlaceDetail({ id }: { id: string }) {
   const [place, setPlace] = useState<Place | null>(null);
   const [visits, setVisits] = useState<Visit[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
+  const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -33,6 +57,9 @@ export function PlaceDetail({ id }: { id: string }) {
     try {
       await api.recordVisit(id);
       await load();
+      // Brief confirmation so the tap has an obvious result.
+      setJustSaved(true);
+      setTimeout(() => setJustSaved(false), 2000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'could not record the visit');
     } finally {
@@ -40,120 +67,201 @@ export function PlaceDetail({ id }: { id: string }) {
     }
   }
 
-  async function removeVisit(visitId: string) {
-    if (!confirm('Remove this visit from the history?')) return;
-    await api.deleteVisit(visitId);
-    await load();
+  function askRemoveVisit(visitId: string) {
+    setConfirmRequest({
+      title: 'Remove this visit?',
+      body: 'It disappears from the history and stops affecting recommendations.',
+      confirmLabel: 'Remove visit',
+      danger: true,
+      onConfirm: async () => {
+        await api.deleteVisit(visitId);
+        await load();
+      },
+    });
   }
 
-  async function remove() {
+  function askDelete() {
     if (!place) return;
-    const message = place.visitCount > 0
-      ? `${place.name} has ${place.visitCount} visit(s). It will be archived, keeping the history. Continue?`
-      : `Delete ${place.name}?`;
-    if (!confirm(message)) return;
 
-    const { result } = await api.deletePlace(id);
-    if (result === 'deleted') navigate('/places');
-    else await load();
+    const archiving = place.visitCount > 0;
+    setConfirmRequest({
+      title: archiving ? `Archive ${place.name}?` : `Delete ${place.name}?`,
+      body: archiving
+        ? `It has ${place.visitCount} ${
+          place.visitCount === 1 ? 'visit' : 'visits'
+        } recorded, so the history is kept and it stops appearing in recommendations.`
+        : 'It has no visits recorded, so it will be deleted for good.',
+      confirmLabel: archiving ? 'Archive' : 'Delete',
+      danger: true,
+      onConfirm: async () => {
+        const { result } = await api.deletePlace(id);
+        if (result === 'deleted') navigate('/places');
+        else await load();
+      },
+    });
   }
 
   if (error) return <p className={ui.error}>{error}</p>;
-  if (!place) return <p className={ui.empty}>Loading…</p>;
+  if (!place) return <SkeletonCard lines={2} />;
 
   return (
     <div>
-      <h2>{place.name}</h2>
-      <div className={ui.meta}>
-        {[place.environment, travelSummary(place), describeLastVisit(place.lastVisitedAt)].filter(Boolean).join(' · ')}
+      <div className={css.head}>
+        <h1 className={css.name}>{place.name}</h1>
+        <p className={css.meta}>
+          {[place.environment, travelSummary(place), describeLastVisit(place.lastVisitedAt)].filter(Boolean).join(
+            ' · ',
+          )}
+        </p>
       </div>
 
-      {place.status === 'archived' && <p className={ui.error}>Archived. It will not appear in recommendations.</p>}
+      {place.status === 'archived' && (
+        <p className={css.archived}>
+          <Archive size={18} />
+          Archived, so it will not appear in recommendations.
+        </p>
+      )}
 
-      <div className={ui.spacer} />
-      <button type='button' className={ui.buttonWide} onClick={markVisited} disabled={busy}>
-        {busy ? 'Saving…' : 'We went here today'}
+      <button
+        type='button'
+        className={justSaved ? css.done : css.primary}
+        onClick={markVisited}
+        disabled={busy}
+      >
+        {justSaved ? <Check size={20} /> : <Calendar size={20} />}
+        {justSaved ? 'Recorded' : 'We went here today'}
       </button>
 
-      <div className={ui.spacer} />
-      <div className={ui.row}>
+      <div className={css.actions}>
         {place.googleMapsUrl && (
-          <a className={ui.button} href={place.googleMapsUrl} target='_blank' rel='noreferrer'>Open in Maps</a>
+          <a className={css.action} href={place.googleMapsUrl} target='_blank' rel='noreferrer'>
+            <MapPin size={20} />
+            Maps
+          </a>
         )}
         {place.websiteUrl && (
-          <a className={ui.button} href={place.websiteUrl} target='_blank' rel='noreferrer'>Website</a>
+          <a className={css.action} href={place.websiteUrl} target='_blank' rel='noreferrer'>
+            <ExternalLink size={20} />
+            Website
+          </a>
         )}
-        <button type='button' className={ui.button} onClick={() => navigate(`/places/${id}/edit`)}>Edit</button>
-        <button type='button' className={ui.buttonDanger} onClick={remove}>
+        <button type='button' className={css.action} onClick={() => navigate(`/places/${id}/edit`)}>
+          <Pencil size={20} />
+          Edit
+        </button>
+        <button type='button' className={css.actionDanger} onClick={askDelete}>
+          {place.visitCount > 0 ? <Archive size={20} /> : <Trash size={20} />}
           {place.visitCount > 0 ? 'Archive' : 'Delete'}
         </button>
       </div>
 
+      <Attributes place={place} />
+
       {place.notes && (
         <>
-          <div className={ui.sectionTitle}>Notes</div>
-          <div className={ui.card}>{place.notes}</div>
+          <span className={ui.sectionTitle}>Notes</span>
+          <div className={css.notes}>{place.notes}</div>
         </>
       )}
 
-      <div className={ui.sectionTitle}>Planning</div>
-      <div className={ui.card}>
-        <ul className={ui.list}>
-          <Detail label='Priority' value={place.priority > 1 ? `${place.priority} of 5` : 'normal'} />
-          <Detail
-            label='Typical visit'
-            value={place.typicalDurationMinutes && formatMinutes(place.typicalDurationMinutes)}
+      <span className={ui.sectionTitle}>Visit history</span>
+      {visits.length === 0
+        ? (
+          <EmptyState
+            icon={<Calendar size={26} />}
+            headline='No visits yet'
+            body='Tap "We went here today" after an outing and it will show up here.'
           />
-          <Detail label='Cost' value={place.costLevel} />
-          <Detail label='Categories' value={place.categories.join(', ')} />
-          <Detail label='Address' value={place.address} />
-          <Detail label='Good in rain' value={yesNo(place.goodForRain)} />
-          <Detail label='Good in heat' value={yesNo(place.goodForHotWeather)} />
-          <Detail label='Good in cold' value={yesNo(place.goodForColdWeather)} />
-          <Detail label='Shaded' value={yesNo(place.shaded)} />
-          <Detail label='Parking' value={tristate(place.parking)} />
-          <Detail label='Stroller friendly' value={tristate(place.strollerFriendly)} />
-          <Detail label='Food' value={tristate(place.foodAvailable)} />
-          <Detail label='Toilets' value={tristate(place.toilets)} />
-          <Detail label='Cooldown' value={place.preferredCooldownDays && `${place.preferredCooldownDays} days`} />
-        </ul>
-      </div>
-
-      <div className={ui.sectionTitle}>Visit history</div>
-      {visits.length === 0 && <p className={ui.empty}>No visits recorded yet.</p>}
-      {visits.length > 0 && (
-        <div className={ui.card}>
-          <ul className={ui.list}>
+        )
+        : (
+          <ul className={css.timeline}>
             {visits.map((v) => (
-              <li key={v.id} className={ui.listItem}>
-                <span>
-                  {formatDate(v.visitedAt)}
-                  {v.note && <div className={ui.meta}>{v.note}</div>}
+              <li key={v.id} className={css.visit}>
+                <span className={css.dot} />
+                <span className={css.visitBody}>
+                  <span className={css.visitDate}>{formatDate(v.visitedAt)}</span>
+                  {v.note && <span className={css.visitNote}>{v.note}</span>}
                 </span>
-                <button type='button' className={ui.button} onClick={() => removeVisit(v.id)}>Remove</button>
+                <button
+                  type='button'
+                  className={css.visitRemove}
+                  aria-label={`Remove visit on ${formatDate(v.visitedAt)}`}
+                  onClick={() => askRemoveVisit(v.id)}
+                >
+                  <Trash size={18} />
+                </button>
               </li>
             ))}
           </ul>
-        </div>
-      )}
+        )}
+
+      <ConfirmSheet request={confirmRequest} onDismiss={() => setConfirmRequest(null)} />
     </div>
   );
 }
 
-function Detail({ label, value }: { label: string; value?: string | number | null | false }) {
-  if (value === undefined || value === null || value === '' || value === false) return null;
+/**
+ * Planning attributes as chips, rendered only when known. An unset field says nothing
+ * rather than showing an empty row, which is what "unknown, not no" looks like in the UI.
+ */
+function Attributes({ place }: { place: Place }) {
+  const chips: React.ReactNode[] = [];
+
+  const add = (key: string, icon: React.ReactNode, text: string, tone?: 'accent' | 'positive') =>
+    chips.push(<Chip key={key} icon={icon} tone={tone}>{text}</Chip>);
+
+  if (place.driveMinutes !== undefined) add('drive', <Car size={16} />, `${place.driveMinutes} min drive`);
+  if (place.trainMinutes !== undefined) add('train', <Train size={16} />, `${place.trainMinutes} min train`);
+  if (place.typicalDurationMinutes !== undefined) {
+    add('duration', <Clock size={16} />, `About ${formatMinutes(place.typicalDurationMinutes)}`);
+  }
+  if (place.costLevel) {
+    add('cost', <Coin size={16} />, place.costLevel === 'free' ? 'Free' : `${place.costLevel} cost`);
+  }
+
+  if (place.goodForRain) add('rain', <Umbrella size={16} />, 'Good in rain', 'positive');
+  if (place.goodForHotWeather) add('hot', <Check size={16} />, 'Good in heat', 'positive');
+  if (place.goodForColdWeather) add('cold', <Check size={16} />, 'Good in cold', 'positive');
+  if (place.shaded) add('shade', <Tree size={16} />, 'Shaded', 'positive');
+
+  if (yes(place.parking)) add('parking', <Parking size={16} />, 'Parking');
+  if (yes(place.toilets)) add('toilets', <Toilet size={16} />, 'Toilets');
+  if (yes(place.foodAvailable)) add('food', <Food size={16} />, 'Food');
+  if (yes(place.strollerFriendly)) add('stroller', <Stroller size={16} />, 'Stroller friendly');
+
+  if (place.preferredCooldownDays !== undefined) {
+    add('cooldown', <Clock size={16} />, `${place.preferredCooldownDays} day cooldown`);
+  }
+
+  const tags = place.categories.map((c) => <Chip key={`cat-${c}`}>{c}</Chip>);
+
+  if (!chips.length && !tags.length && !place.address) return null;
+
   return (
-    <li className={ui.listItem}>
-      <span className={ui.meta}>{label}</span>
-      <span>{value}</span>
-    </li>
+    <>
+      {chips.length > 0 && (
+        <>
+          <span className={ui.sectionTitle}>Good to know</span>
+          <div className={css.chips}>{chips}</div>
+        </>
+      )}
+      {tags.length > 0 && (
+        <>
+          <span className={ui.sectionTitle}>Categories</span>
+          <div className={css.chips}>{tags}</div>
+        </>
+      )}
+      {place.address && (
+        <>
+          <span className={ui.sectionTitle}>Address</span>
+          <p className={ui.meta}>{place.address}</p>
+        </>
+      )}
+    </>
   );
 }
 
-function yesNo(v?: boolean): string | undefined {
-  return v === undefined ? undefined : v ? 'yes' : 'no';
-}
-
-function tristate(v?: Tristate): string | undefined {
-  return !v || v === 'unknown' ? undefined : v;
+/** Only an explicit yes counts; "unknown" and "no" both stay off the page. */
+function yes(v?: Tristate): boolean {
+  return v === 'yes';
 }

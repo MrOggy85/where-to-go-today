@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api.ts';
 import { navigate } from '../useHashRoute.ts';
+import { SkeletonCard } from '../components/Skeleton.tsx';
+import { ChevronDown } from '../icons.tsx';
 import type { CostLevel, Place, PlaceEnvironment, PlaceStatus, Tristate } from '../types.ts';
 import ui from '../ui.module.css';
+import css from './PlaceForm.module.css';
 
 /** Everything the form edits, as strings so inputs stay controlled and empty means "unset". */
 interface FormState {
@@ -150,47 +153,56 @@ export function PlaceForm({ id }: { id?: string }) {
     }
   }
 
-  if (loading) return <p className={ui.empty}>Loading…</p>;
+  if (loading) return <SkeletonCard lines={3} />;
 
   return (
-    <form onSubmit={submit}>
-      <h2>{id ? 'Edit place' : 'Add place'}</h2>
-      <div className={ui.spacer} />
+    <form className={css.form} onSubmit={submit}>
+      <h1 className={css.title}>{id ? 'Edit place' : 'Add place'}</h1>
+
       {error && <p className={ui.error}>{error}</p>}
 
-      <label className={ui.field}>
-        <span className={ui.label}>Name</span>
-        <input className={ui.input} value={form.name} onChange={(e) => set('name')(e.target.value)} required />
-      </label>
+      {/* Only these three are required; everything else can wait. */}
+      <div className={css.required}>
+        <label className={ui.field}>
+          <span className={ui.fieldLabel}>Name</span>
+          <input
+            className={ui.input}
+            value={form.name}
+            onChange={(e) => set('name')(e.target.value)}
+            placeholder='Anpanman Museum'
+            required
+          />
+        </label>
 
-      <label className={ui.field}>
-        <span className={ui.label}>Indoor or outdoor</span>
-        <select
-          className={ui.input}
-          value={form.environment}
-          onChange={(e) => set('environment')(e.target.value as PlaceEnvironment)}
-        >
-          <option value='indoor'>Indoor</option>
-          <option value='outdoor'>Outdoor</option>
-          <option value='mixed'>Mixed</option>
-        </select>
-      </label>
+        <label className={ui.field}>
+          <span className={ui.fieldLabel}>Indoor or outdoor</span>
+          <select
+            className={ui.select}
+            value={form.environment}
+            onChange={(e) => set('environment')(e.target.value as PlaceEnvironment)}
+          >
+            <option value='indoor'>Indoor</option>
+            <option value='outdoor'>Outdoor</option>
+            <option value='mixed'>Mixed</option>
+          </select>
+        </label>
 
-      <label className={ui.field}>
-        <span className={ui.label}>Google Maps link</span>
-        <input
-          className={ui.input}
-          type='url'
-          inputMode='url'
-          placeholder='https://maps.app.goo.gl/…'
-          value={form.googleMapsUrl}
-          onChange={(e) => set('googleMapsUrl')(e.target.value)}
-        />
-      </label>
+        <label className={ui.field}>
+          <span className={ui.fieldLabel}>Google Maps link</span>
+          <input
+            className={ui.input}
+            type='url'
+            inputMode='url'
+            placeholder='https://maps.app.goo.gl/…'
+            value={form.googleMapsUrl}
+            onChange={(e) => set('googleMapsUrl')(e.target.value)}
+          />
+        </label>
+      </div>
 
-      {/* Everything below is optional and stays folded away on a phone. */}
-      <details className={ui.details}>
-        <summary className={ui.summary}>Travel and time</summary>
+      <p className={css.hint}>That is enough to save. The rest can be filled in later.</p>
+
+      <Section title='Travel and time'>
         <div className={ui.grid2}>
           <NumberField label='Drive (min)' value={form.driveMinutes} onChange={set('driveMinutes')} />
           <NumberField label='Train (min)' value={form.trainMinutes} onChange={set('trainMinutes')} />
@@ -205,19 +217,17 @@ export function PlaceForm({ id }: { id?: string }) {
             onChange={set('preferredCooldownDays')}
           />
         </div>
-      </details>
+      </Section>
 
-      <details className={ui.details}>
-        <summary className={ui.summary}>Weather suitability</summary>
+      <Section title='Weather suitability'>
         <TriField label='Good in rain' value={form.goodForRain} onChange={set('goodForRain')} />
         <TriField label='Good in heat' value={form.goodForHotWeather} onChange={set('goodForHotWeather')} />
         <TriField label='Good in cold' value={form.goodForColdWeather} onChange={set('goodForColdWeather')} />
         <TriField label='Fine when windy' value={form.goodForWind} onChange={set('goodForWind')} />
         <TriField label='Shaded' value={form.shaded} onChange={set('shaded')} />
-      </details>
+      </Section>
 
-      <details className={ui.details}>
-        <summary className={ui.summary}>Practical details</summary>
+      <Section title='Practical details'>
         <SelectField label='Parking' value={form.parking} onChange={set('parking')} options={TRISTATE_OPTIONS} />
         <SelectField
           label='Stroller friendly'
@@ -239,11 +249,11 @@ export function PlaceForm({ id }: { id?: string }) {
           options={[['free', 'Free'], ['low', 'Low'], ['medium', 'Medium'], ['high', 'High']]}
         />
         <label className={ui.field}>
-          <span className={ui.label}>Address</span>
+          <span className={ui.fieldLabel}>Address</span>
           <input className={ui.input} value={form.address} onChange={(e) => set('address')(e.target.value)} />
         </label>
         <label className={ui.field}>
-          <span className={ui.label}>Website</span>
+          <span className={ui.fieldLabel}>Website</span>
           <input
             className={ui.input}
             type='url'
@@ -251,10 +261,9 @@ export function PlaceForm({ id }: { id?: string }) {
             onChange={(e) => set('websiteUrl')(e.target.value)}
           />
         </label>
-      </details>
+      </Section>
 
-      <details className={ui.details}>
-        <summary className={ui.summary}>Our opinions</summary>
+      <Section title='Our opinions'>
         <SelectField
           label='Priority'
           value={form.priority}
@@ -273,7 +282,7 @@ export function PlaceForm({ id }: { id?: string }) {
           allowEmpty={false}
         />
         <label className={ui.field}>
-          <span className={ui.label}>Categories (comma separated)</span>
+          <span className={ui.fieldLabel}>Categories (comma separated)</span>
           <input
             className={ui.input}
             placeholder='park, playground'
@@ -282,33 +291,52 @@ export function PlaceForm({ id }: { id?: string }) {
           />
         </label>
         <label className={ui.field}>
-          <span className={ui.label}>Notes</span>
-          <textarea className={ui.textarea} value={form.notes} onChange={(e) => set('notes')(e.target.value)} />
+          <span className={ui.fieldLabel}>Notes</span>
+          <textarea
+            className={ui.textarea}
+            placeholder='Best in the morning. Bring a change of clothes.'
+            value={form.notes}
+            onChange={(e) => set('notes')(e.target.value)}
+          />
         </label>
-      </details>
+      </Section>
 
-      <div className={ui.spacer} />
-      <button className={ui.buttonWide} type='submit' disabled={busy || !form.name.trim()}>
-        {busy ? 'Saving…' : 'Save'}
-      </button>
-      <div className={ui.spacer} />
-      <button
-        type='button'
-        className={ui.button}
-        onClick={() => navigate(id ? `/places/${id}` : '/places')}
-      >
-        Cancel
-      </button>
+      <div className={css.saveBar}>
+        <div className={css.saveInner}>
+          <button
+            type='button'
+            className={css.cancel}
+            onClick={() => navigate(id ? `/places/${id}` : '/places')}
+          >
+            Cancel
+          </button>
+          <button className={css.save} type='submit' disabled={busy || !form.name.trim()}>
+            {busy ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      </div>
     </form>
   );
 }
 
 const TRISTATE_OPTIONS: [string, string][] = [['yes', 'Yes'], ['no', 'No'], ['unknown', 'Unknown']];
 
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <details className={css.section}>
+      <summary className={css.summary}>
+        {title}
+        <ChevronDown size={20} className={css.chevron} />
+      </summary>
+      <div className={css.sectionBody}>{children}</div>
+    </details>
+  );
+}
+
 function NumberField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
     <label className={ui.field}>
-      <span className={ui.label}>{label}</span>
+      <span className={ui.fieldLabel}>{label}</span>
       <input
         className={ui.input}
         type='number'
@@ -336,8 +364,8 @@ function SelectField(
 ) {
   return (
     <label className={ui.field}>
-      <span className={ui.label}>{label}</span>
-      <select className={ui.input} value={value} onChange={(e) => onChange(e.target.value)}>
+      <span className={ui.fieldLabel}>{label}</span>
+      <select className={ui.select} value={value} onChange={(e) => onChange(e.target.value)}>
         {allowEmpty && <option value=''>Not set</option>}
         {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
       </select>

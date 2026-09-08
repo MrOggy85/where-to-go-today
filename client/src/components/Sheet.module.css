@@ -1,0 +1,80 @@
+.backdrop {
+  animation: fade var(--dur-slow) var(--ease);
+  background: rgba(26, 26, 23, 0.28);
+  display: flex;
+  align-items: flex-end;
+  inset: 0;
+  justify-content: center;
+  position: fixed;
+  z-index: 50;
+}
+
+.sheet {
+  animation: rise var(--dur-slow) var(--ease);
+  background: var(--surface);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  box-shadow: var(--shadow-lg);
+  max-width: var(--content-max);
+  padding: var(--space-5) var(--space-5) calc(var(--space-5) + env(safe-area-inset-bottom));
+  width: 100%;
+}
+
+/* On a wide screen a full-width bottom sheet looks stranded; centre it instead. */
+@media (min-width: 700px) {
+  .backdrop {
+    align-items: center;
+  }
+
+  .sheet {
+    border-radius: var(--radius-lg);
+    margin: 0 var(--space-4);
+    max-width: 420px;
+  }
+}
+
+.grabber {
+  background: var(--line-strong);
+  border-radius: var(--radius-pill);
+  height: 4px;
+  margin: 0 auto var(--space-4);
+  width: 36px;
+}
+
+.title {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semi);
+  letter-spacing: var(--tracking-tight);
+  margin-bottom: var(--space-2);
+}
+
+.body {
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-5);
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+@keyframes rise {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet,
+  .backdrop {
+    animation: none;
+  }
+}

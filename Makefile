@@ -1,4 +1,4 @@
-.PHONY: install seed dev build start check fmt deploy-build deploy-up deploy-logs
+.PHONY: install seed dev build start check fmt icons deploy-build deploy-up deploy-logs
 
 # The client needs react + esbuild; the api has no dependencies.
 install:
@@ -30,6 +30,11 @@ check:
 fmt:
 	deno fmt --config api/deno.json api scripts
 	deno fmt --config client/deno.json client
+
+# Regenerate the app icons from the mark in scripts/make-icons.ts. Output is committed,
+# so this only needs running when the mark or the accent colour changes.
+icons:
+	deno run --allow-write=client/static scripts/make-icons.ts
 
 # --- Deployment (Docker + Tailscale Funnel sidecar; see deploy/ and CLAUDE.md) --------
 # These act on the production container, not the working tree. `make dev` is unaffected.
