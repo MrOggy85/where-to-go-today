@@ -83,8 +83,12 @@
   transform: scale(0.985);
 }
 
+/* Same column treatment as the Today list, so the stack does not rely on inline flow. */
 .itemBody {
+  display: flex;
   flex: 1;
+  flex-direction: column;
+  gap: var(--space-1);
   min-width: 0;
 }
 
@@ -95,7 +99,6 @@
   font-weight: var(--weight-semi);
   gap: var(--space-2);
   letter-spacing: var(--tracking-tight);
-  margin-bottom: var(--space-1);
 }
 
 .nameText {
@@ -112,7 +115,7 @@
 .chips {
   display: flex;
   gap: var(--space-2);
-  margin-top: var(--space-2);
+  margin-top: var(--space-1);
   overflow: hidden;
 }
 
