@@ -21,8 +21,7 @@
 }
 
 .search {
-  composes: input from '../ui.module.css';
-  padding-left: var(--space-10);
+  composes: inputWithIcon from '../ui.module.css';
 }
 
 .search::-webkit-search-cancel-button {

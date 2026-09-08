@@ -193,6 +193,16 @@
   padding: 0 var(--space-3);
 }
 
+/*
+ * Leaves room for a leading icon. Must live here, not in a page stylesheet: `input` sets
+ * the `padding` shorthand, and a cross-file override of `padding-left` has no defined
+ * order against it, so the shorthand wins and the icon sits on top of the text.
+ */
+.inputWithIcon {
+  composes: input;
+  padding-left: var(--space-10);
+}
+
 .textarea {
   composes: input;
   line-height: var(--leading-normal);

@@ -75,7 +75,12 @@
   /* Apple's minimum comfortable target. Every interactive element clears it. */
   --tap: 44px;
 
-  --nav-height: 60px;
+  /*
+   * The full height of the bottom nav, not just its items: 1px border + 8px padding +
+   * ~60px item + 8px padding. Anything pinned above the nav offsets by this plus
+   * env(safe-area-inset-bottom).
+   */
+  --nav-height: 78px;
   --content-max: 640px;
 }
 
