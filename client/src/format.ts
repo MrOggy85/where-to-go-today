@@ -28,8 +28,9 @@ export function travelSummary(p: { driveMinutes?: number; trainMinutes?: number 
   return parts.join(' / ');
 }
 
-export function formatMinutes(min: number): string {
-  if (min < 60) return `${min} min`;
-  const hours = min / 60;
-  return Number.isInteger(hours) ? `${hours} h` : `${hours.toFixed(1)} h`;
+/** Typical visit length. Whole hours are the norm; halves are kept rather than rounded away. */
+export function formatHours(hours: number): string {
+  if (hours < 1) return `${Math.round(hours * 60)} min`;
+  const label = Number.isInteger(hours) ? String(hours) : hours.toFixed(1);
+  return `${label} ${hours === 1 ? 'hour' : 'hours'}`;
 }

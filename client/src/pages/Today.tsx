@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api.ts';
 import { navigate } from '../useHashRoute.ts';
-import { formatMinutes, formatToday } from '../format.ts';
+import { formatHours, formatToday } from '../format.ts';
 import { Chip, ChipButton } from '../components/Chip.tsx';
 import { SkeletonList } from '../components/Skeleton.tsx';
 import { EmptyState } from '../components/EmptyState.tsx';
@@ -248,7 +248,7 @@ export function Today() {
 function describePlace(r: Recommendation): string {
   const p = r.place;
   const parts: string[] = [p.environment];
-  if (p.typicalDurationMinutes) parts.push(`about ${formatMinutes(p.typicalDurationMinutes)}`);
+  if (p.typicalDurationHours) parts.push(`about ${formatHours(p.typicalDurationHours)}`);
   if (p.costLevel) parts.push(p.costLevel === 'free' ? 'free' : `${p.costLevel} cost`);
   return parts.join(' · ');
 }

@@ -11,7 +11,7 @@ export const MAX_CATEGORY = 40;
 export const MAX_BODY_BYTES = 64 * 1024;
 
 export const ENVIRONMENTS: PlaceEnvironment[] = ['indoor', 'outdoor', 'mixed'];
-export const STATUSES: PlaceStatus[] = ['want_to_go', 'active', 'archived'];
+export const STATUSES: PlaceStatus[] = ['active', 'archived'];
 export const COST_LEVELS: CostLevel[] = ['free', 'low', 'medium', 'high'];
 export const TRISTATES: Tristate[] = ['yes', 'no', 'unknown'];
 

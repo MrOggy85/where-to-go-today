@@ -165,18 +165,6 @@ export function Food(props: IconProps) {
   );
 }
 
-export function Stroller(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d='M4 4h1.6a2 2 0 0 1 1.9 1.4L9 10' />
-      <path d='M19.5 10a7.5 7.5 0 0 1-15 0Z' />
-      <path d='M8 14.5 6.5 17M16 14.5l1.5 2.5' />
-      <circle cx='6' cy='19' r='1.8' />
-      <circle cx='18' cy='19' r='1.8' />
-    </Svg>
-  );
-}
-
 export function Sparkle(props: IconProps) {
   return (
     <Svg {...props}>

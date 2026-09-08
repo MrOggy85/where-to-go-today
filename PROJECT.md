@@ -191,7 +191,8 @@ Suggested TypeScript shape:
 
 ```ts
 type PlaceEnvironment = 'indoor' | 'outdoor' | 'mixed';
-type PlaceStatus = 'want_to_go' | 'active' | 'archived';
+// "Want to go" is derived, not stored: an active place with no visits yet.
+type PlaceStatus = 'active' | 'archived';
 type CostLevel = 'free' | 'low' | 'medium' | 'high';
 
 interface Place {
@@ -214,7 +215,8 @@ interface Place {
   // Family-specific planning metadata.
   driveMinutes?: number;
   trainMinutes?: number;
-  typicalDurationMinutes?: number;
+  // Hours, because an hour is the unit families plan an outing in. Halves are allowed.
+  typicalDurationHours?: number;
   costLevel?: CostLevel;
 
   goodForRain?: boolean;
@@ -224,15 +226,11 @@ interface Place {
   shaded?: boolean;
 
   parking?: 'yes' | 'no' | 'unknown';
-  strollerFriendly?: 'yes' | 'no' | 'unknown';
   foodAvailable?: 'yes' | 'no' | 'unknown';
   toilets?: 'yes' | 'no' | 'unknown';
 
   // 1 = normal, larger values mean "we particularly want to go here".
   priority?: number;
-
-  // Optional override for places that become repetitive quickly.
-  preferredCooldownDays?: number;
 
   notes?: string;
 
@@ -389,7 +387,8 @@ Possible behavior:
 - visited several months ago -> neutral/positive
 - never visited -> meaningful boost
 
-`preferredCooldownDays` can override the normal curve for specific places.
+The curve is the same for every place. Per-place cooldown overrides were tried and removed:
+the household could not say what a useful value would be, so the field only added a form row.
 
 Do not use a hard global cooldown unless the product proves it is useful.
 
@@ -518,14 +517,13 @@ Browse/search all places.
 
 Useful filters:
 
-- want to go
-- visited
+- want to go (active and never visited)
 - indoor
 - outdoor
 - category
 - favorites/high priority
 - not visited recently
-- never visited
+- archived
 
 ### Place detail
 
@@ -1044,7 +1042,9 @@ The following questions remain intentionally open and should be answered from re
 
 1. Should the Today page ask how much time is available, or initially assume the whole remaining day?
 2. Should users be able to choose a preferred transport mode for a recommendation session, or should the app always show both drive and train suitability?
-3. Should certain places have custom cooldown periods because they become repetitive faster than others?
+3. ~~Should certain places have custom cooldown periods because they become repetitive faster
+   than others?~~ **Decided 2026-09-08:** no. `preferredCooldownDays` was removed; one recency
+   curve applies to every place.
 4. Are there places one adult likes but the other does not, requiring profile-specific preferences later?
 
 ### Weather
@@ -1056,7 +1056,7 @@ The following questions remain intentionally open and should be answered from re
 
 ### Place metadata
 
-9. Which planning attributes actually affect decisions: parking, cost, stroller access, toilets, food, crowding, nap compatibility, shade, reservation requirement, etc.?
+9. Which planning attributes actually affect decisions: parking, cost, toilets, food, crowding, nap compatibility, shade, reservation requirement, etc.? Stroller access was tried and removed on 2026-09-08: it never changed a choice.
 10. Should restaurants/cafes live in the same database, or is the app specifically about activities/outings?
 
 ### Visits and diary
@@ -1085,7 +1085,9 @@ An implementation agent may proceed with these defaults:
 - 45-minute normal travel threshold
 - store drive time and train time separately
 - a place is normally in range if either drive or train time is <= 45 minutes
-- no hard post-visit cooldown
+- typical visit length is recorded in hours, not minutes
+- a place is either active or archived; "want to go" is derived from active and never visited
+- no hard post-visit cooldown, and no per-place cooldown override
 - never-visited places get only a small boost
 - "today" means the current household-local calendar day; default timezone is `Asia/Tokyo`
 - 30°C+ with no meaningful cloud cover is too hot for normal outdoor activity

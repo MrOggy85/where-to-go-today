@@ -35,7 +35,7 @@ export function toPlace(r: PlaceRow): Place {
     websiteUrl: opt(r.website_url),
     driveMinutes: opt(r.drive_minutes),
     trainMinutes: opt(r.train_minutes),
-    typicalDurationMinutes: opt(r.typical_duration_minutes),
+    typicalDurationHours: opt(r.typical_duration_hours),
     costLevel: opt(r.cost_level) as CostLevel | undefined,
     goodForRain: bool(r.good_for_rain),
     goodForHotWeather: bool(r.good_for_hot_weather),
@@ -43,11 +43,9 @@ export function toPlace(r: PlaceRow): Place {
     goodForWind: bool(r.good_for_wind),
     shaded: bool(r.shaded),
     parking: opt(r.parking) as Tristate | undefined,
-    strollerFriendly: opt(r.stroller_friendly) as Tristate | undefined,
     foodAvailable: opt(r.food_available) as Tristate | undefined,
     toilets: opt(r.toilets) as Tristate | undefined,
     priority: r.priority,
-    preferredCooldownDays: opt(r.preferred_cooldown_days),
     notes: opt(r.notes),
     createdAt: r.created_at,
     updatedAt: r.updated_at,
@@ -135,7 +133,7 @@ export interface PlaceInput {
   website_url: string | null;
   drive_minutes: number | null;
   train_minutes: number | null;
-  typical_duration_minutes: number | null;
+  typical_duration_hours: number | null;
   cost_level: string | null;
   good_for_rain: number | null;
   good_for_hot_weather: number | null;
@@ -143,11 +141,9 @@ export interface PlaceInput {
   good_for_wind: number | null;
   shaded: number | null;
   parking: string | null;
-  stroller_friendly: string | null;
   food_available: string | null;
   toilets: string | null;
   priority: number;
-  preferred_cooldown_days: number | null;
   notes: string | null;
 }
 
@@ -162,7 +158,7 @@ const COLUMNS = [
   'website_url',
   'drive_minutes',
   'train_minutes',
-  'typical_duration_minutes',
+  'typical_duration_hours',
   'cost_level',
   'good_for_rain',
   'good_for_hot_weather',
@@ -170,11 +166,9 @@ const COLUMNS = [
   'good_for_wind',
   'shaded',
   'parking',
-  'stroller_friendly',
   'food_available',
   'toilets',
   'priority',
-  'preferred_cooldown_days',
   'notes',
 ] as const;
 

@@ -37,7 +37,8 @@ CREATE TABLE IF NOT EXISTS places (
   household_id TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,
 
   name        TEXT NOT NULL,
-  status      TEXT NOT NULL DEFAULT 'active',   -- want_to_go | active | archived
+  -- "want to go" is derived: active and never visited. It is not a stored status.
+  status      TEXT NOT NULL DEFAULT 'active',   -- active | archived
   environment TEXT NOT NULL,                    -- indoor | outdoor | mixed
 
   address          TEXT,
@@ -46,10 +47,10 @@ CREATE TABLE IF NOT EXISTS places (
   google_maps_url  TEXT,
   website_url      TEXT,
 
-  drive_minutes            INTEGER,
-  train_minutes            INTEGER,
-  typical_duration_minutes INTEGER,
-  cost_level               TEXT,                -- free | low | medium | high
+  drive_minutes          INTEGER,
+  train_minutes          INTEGER,
+  typical_duration_hours REAL,                  -- whole hours usually, halves allowed
+  cost_level             TEXT,                  -- free | low | medium | high
 
   good_for_rain         INTEGER,                -- 0/1/null, null means unknown
   good_for_hot_weather  INTEGER,
@@ -57,13 +58,11 @@ CREATE TABLE IF NOT EXISTS places (
   good_for_wind         INTEGER,
   shaded                INTEGER,
 
-  parking           TEXT,                       -- yes | no | unknown
-  stroller_friendly TEXT,
-  food_available    TEXT,
-  toilets           TEXT,
+  parking        TEXT,                          -- yes | no | unknown
+  food_available TEXT,
+  toilets        TEXT,
 
-  priority                INTEGER NOT NULL DEFAULT 1,
-  preferred_cooldown_days INTEGER,
+  priority INTEGER NOT NULL DEFAULT 1,
 
   notes TEXT,
 
