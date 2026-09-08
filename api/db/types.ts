@@ -22,6 +22,8 @@ export interface Place {
   status: PlaceStatus;
 
   categories: Category[];
+  /** Most recent photo ids, capped for list previews. The galleries fetch the full set. */
+  photoIds: string[];
   environment: PlaceEnvironment;
 
   address?: string;
@@ -73,6 +75,29 @@ export interface Visit {
   createdByProfileId?: string;
 }
 
+export interface Photo {
+  id: string;
+  householdId: string;
+  placeId: string;
+  /** Absent when the photo belongs to the place but not to any one outing. */
+  visitId?: string;
+
+  filename: string;
+  contentType: string;
+  sizeBytes: number;
+  width?: number;
+  height?: number;
+
+  capturedAt?: string;
+  uploadedAt: string;
+  uploadedByProfileId?: string;
+}
+
+/** Photo plus the place name, so the all-photos grid can label a tile without a join. */
+export interface PhotoWithPlace extends Photo {
+  placeName: string;
+}
+
 export interface Profile {
   id: string;
   name: string;
@@ -118,4 +143,6 @@ export interface PlaceRow {
   visit_count: number;
   /** JSON array of `{ id, name }`, built by the SELECT rather than a second query. */
   categories: string | null;
+  /** JSON array of recent photo ids, for list-row thumbnails. */
+  photo_ids: string | null;
 }

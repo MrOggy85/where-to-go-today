@@ -33,12 +33,19 @@
   margin-bottom: var(--space-3);
 }
 
+.secondary {
+  composes: buttonNeutralWide from '../ui.module.css';
+  margin-bottom: var(--space-3);
+}
+
 /* Secondary actions read as a quiet toolbar, not four competing buttons. */
 .actions {
   background: var(--surface);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
   display: flex;
+  /* Separates the toolbar from the photo grid that follows it. */
+  margin-bottom: var(--space-5);
   overflow: hidden;
 }
 
@@ -131,6 +138,23 @@
   flex-direction: column;
   min-width: 0;
   padding-bottom: var(--space-3);
+}
+
+/* Same column as .visitBody, but a button: the whole entry opens the visit page. */
+.visitOpen {
+  composes: visitBody;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  padding-left: 0;
+  padding-right: 0;
+  text-align: left;
+  transition: opacity var(--dur) var(--ease);
+}
+
+.visitOpen:active {
+  opacity: 0.6;
 }
 
 .visitDate {

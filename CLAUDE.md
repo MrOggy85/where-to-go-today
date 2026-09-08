@@ -11,6 +11,13 @@ update it in the same change when a new requirement conflicts with it.
 - Missing place metadata means "unknown", never "exclude". Eligibility filters stay
   conservative.
 - Places with visit history are archived, not deleted.
+- Photo bytes live in `<data dir>/photos/` and are served **only** by
+  `GET /api/photos/:id/file`, which scopes on `household_id` first. Never as static files.
+- Deleting photo rows must unlink the files too, including when they vanish by cascade from
+  a deleted place. An orphaned row breaks the grid; an orphaned file never gets collected.
+- Images are resized in the browser (`client/src/photos.ts`), never on the server. The api
+  owns no image decoder and must not grow one.
+- List rows preview photos from `photoIds` on the place payload. Never fetch photos per row.
 - Never log session cookies, passwords, password hashes, note contents or home
   coordinates.
 - No new runtime dependencies without a real need. No ORM, router, state library or UI
@@ -75,6 +82,9 @@ Internet -> Tailscale Funnel -> wtgt-tailscale  -> where-to-go-today
   binds and Funnel fails *silently*. `AllowFunnel` is top-level, not nested inside `Web`.
 - `deploy/seed.sh` creates the household in the production volume. Until it runs, login
   has nothing to check against.
+- Photos are written to `/app/data/photos/`, inside the existing `deploy/data` bind mount,
+  so the one volume and one backup already cover both them and the database. No extra mount
+  and no `--allow-write` change; `/app/data` already grants the subdirectory.
 
 ### Secrets
 

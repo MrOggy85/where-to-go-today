@@ -1,0 +1,17 @@
+.title {
+  composes: title from '../ui.module.css';
+  margin-bottom: var(--space-1);
+}
+
+.adder {
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  margin: var(--space-4) 0;
+  padding: var(--space-4);
+}
+
+.upload {
+  composes: buttonPrimaryLarge from '../ui.module.css';
+  width: 100%;
+}

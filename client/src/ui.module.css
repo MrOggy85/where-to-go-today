@@ -112,6 +112,13 @@
   font-size: var(--text-base);
 }
 
+/* Neutral counterpart to buttonWide, for a secondary action under a primary one. */
+.buttonNeutralWide {
+  composes: button;
+  display: flex;
+  width: 100%;
+}
+
 .buttonPositiveWide {
   composes: buttonWide;
   background: var(--positive);

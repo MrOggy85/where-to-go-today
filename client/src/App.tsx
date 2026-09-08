@@ -7,7 +7,10 @@ import { Places } from './pages/Places.tsx';
 import { PlaceDetail } from './pages/PlaceDetail.tsx';
 import { PlaceForm } from './pages/PlaceForm.tsx';
 import { Categories } from './pages/Categories.tsx';
-import { ChevronRight, Compass, MapPin, Tag } from './icons.tsx';
+import { Photos } from './pages/Photos.tsx';
+import { PlacePhotos } from './pages/PlacePhotos.tsx';
+import { VisitForm } from './pages/VisitForm.tsx';
+import { ChevronRight, Compass, Image, MapPin, Tag } from './icons.tsx';
 import { ConfirmSheet } from './components/Sheet.tsx';
 import type { Me } from './types.ts';
 import css from './App.module.css';
@@ -16,7 +19,13 @@ import './global.css';
 /** `owns` lists the routes that light a tab up, so pushed views keep their parent lit. */
 const TABS: { to: string; label: string; icon: typeof Compass; owns: Route['name'][] }[] = [
   { to: '/', label: 'Today', icon: Compass, owns: ['today'] },
-  { to: '/places', label: 'Places', icon: MapPin, owns: ['places', 'newPlace', 'place', 'editPlace'] },
+  {
+    to: '/places',
+    label: 'Places',
+    icon: MapPin,
+    owns: ['places', 'newPlace', 'place', 'editPlace', 'placePhotos', 'newVisit', 'visit'],
+  },
+  { to: '/photos', label: 'Photos', icon: Image, owns: ['photos'] },
   { to: '/categories', label: 'Categories', icon: Tag, owns: ['categories'] },
 ];
 
@@ -30,7 +39,13 @@ function parentOf(route: Route): string | null {
     case 'newPlace':
       return '/places';
     case 'editPlace':
+    case 'placePhotos':
       return `/places/${route.id}`;
+    case 'newVisit':
+      return `/places/${route.placeId}`;
+    // A visit knows its place only once loaded, so the list is the reliable way back.
+    case 'visit':
+      return '/places';
     default:
       return null;
   }
@@ -97,7 +112,11 @@ export function App() {
         {route.name === 'newPlace' && <PlaceForm />}
         {route.name === 'editPlace' && <PlaceForm id={route.id} />}
         {route.name === 'place' && <PlaceDetail id={route.id} />}
+        {route.name === 'placePhotos' && <PlacePhotos id={route.id} />}
+        {route.name === 'newVisit' && <VisitForm placeId={route.placeId} />}
+        {route.name === 'visit' && <VisitForm visitId={route.id} />}
         {route.name === 'categories' && <Categories />}
+        {route.name === 'photos' && <Photos />}
       </main>
 
       <nav className={css.nav}>

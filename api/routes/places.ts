@@ -9,6 +9,7 @@ import {
   updatePlace,
 } from '../db/places.ts';
 import { listCategories, ownedCategoryIds } from '../db/categories.ts';
+import { removePhoto } from '../photos/storage.ts';
 import { listVisitsForPlace } from '../db/visits.ts';
 import { MAX_PRIORITY } from '../recommendations/config.ts';
 import {
@@ -151,8 +152,11 @@ export async function putPlace(req: Request, auth: Auth, id: string): Promise<Re
   }
 }
 
-export function deletePlaceById(auth: Auth, id: string): Response {
-  const result = deletePlace(auth.householdId, id);
+export async function deletePlaceById(auth: Auth, id: string): Promise<Response> {
+  const { result, orphanedFiles } = deletePlace(auth.householdId, id);
   if (result === 'missing') return errorResponse('place not found', 404);
+
+  // The rows cascaded with the place; the files have to be unlinked by hand.
+  for (const filename of orphanedFiles) await removePhoto(filename);
   return jsonResponse({ result });
 }

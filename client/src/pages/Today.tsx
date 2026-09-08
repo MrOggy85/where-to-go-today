@@ -5,6 +5,7 @@ import { formatHours, formatToday } from '../format.ts';
 import { Chip, ChipButton } from '../components/Chip.tsx';
 import { SkeletonList } from '../components/Skeleton.tsx';
 import { EmptyState } from '../components/EmptyState.tsx';
+import { PhotoStrip } from '../components/PhotoStrip.tsx';
 import { ChevronRight, Compass, Dice, Sliders, Sun, Umbrella, Wind } from '../icons.tsx';
 import type { Recommendation, TodayResponse, WeatherPicks } from '../types.ts';
 import ui from '../ui.module.css';
@@ -16,6 +17,9 @@ const TRAVEL_OPTIONS: { label: string; value?: number }[] = [
   { label: '30 min', value: 30 },
   { label: '45 min', value: 45 },
 ];
+
+/** One row on a recommendation card; more would crowd out the reason chips. */
+const TODAY_THUMBS = 5;
 
 const TIME_OPTIONS: { label: string; value?: number }[] = [
   { label: 'All day' },
@@ -194,6 +198,7 @@ export function Today() {
             onKeyDown={(e) => e.key === 'Enter' && navigate(`/places/${hero.place.id}`)}
           >
             <div className={css.heroName}>{hero.place.name}</div>
+            <PhotoStrip ids={hero.place.photoIds.slice(0, TODAY_THUMBS)} />
             <div className={css.heroMeta}>{describePlace(hero)}</div>
             <div className={css.heroChips}>
               {hero.reasons.map((r) => <Chip key={r} tone='accent'>{r}</Chip>)}
@@ -217,6 +222,7 @@ export function Today() {
             >
               <span className={css.itemBody}>
                 <span className={css.itemName}>{r.place.name}</span>
+                <PhotoStrip ids={r.place.photoIds.slice(0, TODAY_THUMBS)} />
                 <span className={ui.metaQuiet}>{describePlace(r)}</span>
                 <span className={css.itemChips}>
                   {r.reasons.slice(0, 2).map((reason) => <Chip key={reason}>{reason}</Chip>)}

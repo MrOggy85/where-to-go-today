@@ -1,6 +1,13 @@
 import { db, newId, nowIso, row, rows, run } from './db.ts';
 import { replaceCategories } from './categories.ts';
+import { filenamesForPlace } from './photos.ts';
 import type { Category, CostLevel, Place, PlaceEnvironment, PlaceRow, PlaceStatus, Tristate } from './types.ts';
+
+/**
+ * Enough recent photo ids for a list row to show a thumbnail strip without a request per
+ * place. The full set is fetched separately by the galleries; this is only for previews.
+ */
+const LIST_PHOTO_IDS = 10;
 
 // Categories come back as JSON rather than a delimited string: they are rows now, so each
 // one carries an id as well as a name and a separator would have to encode both.
@@ -13,7 +20,13 @@ const SELECT_PLACE = `
          FROM place_categories pc JOIN categories c ON c.id = pc.category_id
         WHERE pc.place_id = p.id
         ORDER BY c.name COLLATE NOCASE ASC
-     )) AS categories
+     )) AS categories,
+    (SELECT json_group_array(id) FROM (
+       SELECT ph.id AS id FROM photos ph
+        WHERE ph.place_id = p.id
+        ORDER BY ph.uploaded_at DESC
+        LIMIT ${LIST_PHOTO_IDS}
+     )) AS photo_ids
   FROM places p
 `;
 
@@ -32,6 +45,7 @@ export function toPlace(r: PlaceRow): Place {
     name: r.name,
     status: r.status as PlaceStatus,
     categories: r.categories ? JSON.parse(r.categories) as Category[] : [],
+    photoIds: r.photo_ids ? JSON.parse(r.photo_ids) as string[] : [],
     environment: r.environment as PlaceEnvironment,
     address: opt(r.address),
     latitude: opt(r.latitude),
@@ -232,10 +246,13 @@ export type DeleteResult = 'deleted' | 'archived' | 'missing';
 /**
  * Places with visit history are archived, not destroyed: the diary is the point of the
  * app and a delete tap should never silently erase years of outings.
+ *
+ * Photo rows cascade with the place, so their filenames come back for the caller to unlink;
+ * file IO stays out of the db layer.
  */
-export function deletePlace(householdId: string, id: string): DeleteResult {
+export function deletePlace(householdId: string, id: string): { result: DeleteResult; orphanedFiles: string[] } {
   const existing = getPlace(householdId, id);
-  if (!existing) return 'missing';
+  if (!existing) return { result: 'missing', orphanedFiles: [] };
 
   if (existing.visitCount > 0) {
     run(
@@ -244,9 +261,10 @@ export function deletePlace(householdId: string, id: string): DeleteResult {
       householdId,
       id,
     );
-    return 'archived';
+    return { result: 'archived', orphanedFiles: [] };
   }
 
+  const orphanedFiles = filenamesForPlace(householdId, id);
   run('DELETE FROM places WHERE household_id = ? AND id = ?', householdId, id);
-  return 'deleted';
+  return { result: 'deleted', orphanedFiles };
 }

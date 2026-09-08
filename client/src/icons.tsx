@@ -57,6 +57,16 @@ export function Tag(props: IconProps) {
   );
 }
 
+export function Image(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x='3' y='4' width='18' height='16' rx='2.5' />
+      <circle cx='8.75' cy='9.5' r='1.6' />
+      <path d='M3.5 17.5 8.5 13a1.8 1.8 0 0 1 2.4 0l3.4 3.1M13.2 15.2l2.1-1.9a1.8 1.8 0 0 1 2.4 0l2.8 2.5' />
+    </Svg>
+  );
+}
+
 /* ---- weather ---- */
 
 export function Umbrella(props: IconProps) {

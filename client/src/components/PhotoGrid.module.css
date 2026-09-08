@@ -1,0 +1,194 @@
+.grid {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  margin-bottom: var(--space-4);
+}
+
+.tile {
+  position: relative;
+}
+
+.open {
+  background: var(--surface-sunk);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: block;
+  overflow: hidden;
+  padding: 0;
+  width: 100%;
+}
+
+/*
+ * Square tiles regardless of the photo's own ratio, so the grid stays even. The intrinsic
+ * width/height attributes still reserve the box before the bytes arrive.
+ */
+.image {
+  aspect-ratio: 1;
+  display: block;
+  height: auto;
+  object-fit: cover;
+  transition: transform var(--dur) var(--ease);
+  width: 100%;
+}
+
+.open:active .image {
+  transform: scale(0.96);
+}
+
+/* Hidden but clicked by the visible tile, which forwards to it. */
+.fileInput {
+  display: none;
+}
+
+/* Same square as a tile, so it reads as the next cell rather than a floating button. */
+.add {
+  align-items: center;
+  aspect-ratio: 1;
+  background: var(--surface);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--ink-2);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  justify-content: center;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+  width: 100%;
+}
+
+.add:active {
+  background: var(--surface-hover);
+  color: var(--accent-ink);
+}
+
+.addLabel {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semi);
+}
+
+.caption {
+  bottom: 0;
+  border-bottom-left-radius: var(--radius-sm);
+  border-bottom-right-radius: var(--radius-sm);
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.6));
+  color: #fff;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semi);
+  left: 0;
+  overflow: hidden;
+  padding: var(--space-4) var(--space-2) var(--space-1);
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.remove {
+  align-items: center;
+  background: rgba(0, 0, 0, 0.55);
+  border: none;
+  border-radius: var(--radius-pill);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  height: 30px;
+  justify-content: center;
+  position: absolute;
+  right: var(--space-1);
+  top: var(--space-1);
+  transition: background var(--dur) var(--ease);
+  width: 30px;
+}
+
+.remove:active {
+  background: var(--danger);
+}
+
+/* ---- lightbox ---- */
+
+.lightbox {
+  align-items: center;
+  animation: fade var(--dur) var(--ease);
+  background: rgba(0, 0, 0, 0.92);
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  left: 0;
+  padding: var(--space-4);
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 40;
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.full {
+  max-height: 100%;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.overlayButton {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.14);
+  border: none;
+  border-radius: var(--radius-pill);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  height: var(--tap);
+  justify-content: center;
+  position: fixed;
+  transition: background var(--dur) var(--ease);
+  width: var(--tap);
+  z-index: 41;
+}
+
+.overlayButton:active {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.close {
+  composes: overlayButton;
+  right: var(--space-4);
+  top: calc(env(safe-area-inset-top) + var(--space-4));
+}
+
+/* Arrow keys do the same job; these are the touch equivalent. */
+.next {
+  composes: overlayButton;
+  right: var(--space-4);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.prev {
+  composes: overlayButton;
+  left: var(--space-4);
+  top: 50%;
+  /* Rotated rather than a second glyph, as elsewhere in the app. */
+  transform: translateY(-50%) rotate(180deg);
+}
+
+.counter {
+  bottom: calc(env(safe-area-inset-bottom) + var(--space-4));
+  color: rgba(255, 255, 255, 0.75);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--weight-semi);
+  left: 0;
+  pointer-events: none;
+  position: fixed;
+  right: 0;
+  text-align: center;
+  z-index: 41;
+}

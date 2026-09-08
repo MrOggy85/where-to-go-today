@@ -1,4 +1,5 @@
-import type { Category, CategoryWithCount, Me, Place, TodayResponse, Visit, WeatherPicks } from './types.ts';
+import type { Category, CategoryWithCount, Me, Photo, Place, TodayResponse, Visit, WeatherPicks } from './types.ts';
+import type { PreparedPhoto } from './photos.ts';
 
 export class ApiError extends Error {
   constructor(message: string, readonly status: number) {
@@ -7,9 +8,12 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  // FormData must set its own content-type: the multipart boundary is part of it.
+  const json = init?.body !== undefined && !(init.body instanceof FormData);
+
   const resp = await fetch(path, {
     ...init,
-    headers: init?.body ? { 'content-type': 'application/json', ...init?.headers } : init?.headers,
+    headers: json ? { 'content-type': 'application/json', ...init?.headers } : init?.headers,
   });
 
   const text = await resp.text();
@@ -73,5 +77,29 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  visit: (id: string) => request<{ visit: Visit; place: Place }>(`/api/visits/${id}`),
+
+  updateVisit: (id: string, body: { visitedAt?: string; note?: string | null }) =>
+    request<{ visit: Visit }>(`/api/visits/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+
   deleteVisit: (id: string) => request<{ result: string }>(`/api/visits/${id}`, { method: 'DELETE' }),
+
+  photos: (filters: { placeId?: string; visitId?: string } = {}) => {
+    const params = new URLSearchParams(Object.entries(filters).filter(([, v]) => v) as [string, string][]);
+    return request<{ photos: Photo[] }>(`/api/photos?${params}`);
+  },
+
+  /** Dimensions and timestamps ride along as parallel comma-separated lists. */
+  uploadPhotos: (placeId: string, prepared: PreparedPhoto[], visitId?: string) => {
+    const form = new FormData();
+    for (const p of prepared) form.append('photos', p.file);
+    form.set('widths', prepared.map((p) => p.width).join(','));
+    form.set('heights', prepared.map((p) => p.height).join(','));
+    form.set('capturedAt', prepared.map((p) => p.capturedAt ?? '').join(','));
+    if (visitId) form.set('visitId', visitId);
+
+    return request<{ photos: Photo[] }>(`/api/places/${placeId}/photos`, { method: 'POST', body: form });
+  },
+
+  deletePhoto: (id: string) => request<{ result: string }>(`/api/photos/${id}`, { method: 'DELETE' }),
 };

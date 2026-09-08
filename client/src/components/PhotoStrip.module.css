@@ -1,0 +1,29 @@
+/*
+ * Fixed-size squares in a wrapping flex, clipped by max-height rather than counted: the
+ * number that fits a row depends on screen width, so the row count is enforced in CSS and
+ * the caller only caps how many are sent.
+ */
+.strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+  max-height: var(--photo-thumb);
+  overflow: hidden;
+  /* The row itself is the tap target; the thumbnails must not intercept it. */
+  pointer-events: none;
+}
+
+.stripTwoRows {
+  composes: strip;
+  max-height: calc(var(--photo-thumb) * 2 + var(--space-1));
+}
+
+.thumb {
+  background: var(--surface-sunk);
+  border-radius: var(--radius-xs);
+  flex: none;
+  height: var(--photo-thumb);
+  object-fit: cover;
+  width: var(--photo-thumb);
+}

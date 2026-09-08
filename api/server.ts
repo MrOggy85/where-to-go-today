@@ -7,7 +7,8 @@ import { errorResponse } from './db/validate.ts';
 import { getHealth } from './routes/health.ts';
 import { getMe, postLogin, postLogout, postProfile } from './routes/auth.ts';
 import { deletePlaceById, getPlaceById, getPlaces, postPlaces, putPlace } from './routes/places.ts';
-import { deleteVisitById, getPlaceVisits, getVisits, postPlaceVisit } from './routes/visits.ts';
+import { deleteVisitById, getPlaceVisits, getVisitById, getVisits, postPlaceVisit, putVisit } from './routes/visits.ts';
+import { deletePhotoById, getPhotoFile, getPhotos, postPlacePhotos } from './routes/photos.ts';
 import { deleteCategoryById, getCategories, postCategories, putCategory } from './routes/categories.ts';
 import { getToday } from './routes/today.ts';
 
@@ -90,12 +91,23 @@ async function routeApi(req: Request, url: URL, ip: string): Promise<{ resp: Res
     if (method === 'POST') return done(await postPlaceVisit(req, auth, placeVisitsId), auth);
   }
 
+  const placePhotosId = match(path, '/api/places', '/photos');
+  if (placePhotosId && method === 'POST') return done(await postPlacePhotos(req, auth, placePhotosId), auth);
+
   const placeId = match(path, '/api/places');
   if (placeId) {
     if (method === 'GET') return done(getPlaceById(auth, placeId), auth);
     if (method === 'PUT') return done(await putPlace(req, auth, placeId), auth);
-    if (method === 'DELETE') return done(deletePlaceById(auth, placeId), auth);
+    if (method === 'DELETE') return done(await deletePlaceById(auth, placeId), auth);
   }
+
+  if (path === '/api/photos' && method === 'GET') return done(getPhotos(url, auth), auth);
+
+  const photoFileId = match(path, '/api/photos', '/file');
+  if (photoFileId && method === 'GET') return done(await getPhotoFile(auth, photoFileId), auth);
+
+  const photoId = match(path, '/api/photos');
+  if (photoId && method === 'DELETE') return done(await deletePhotoById(auth, photoId), auth);
 
   if (path === '/api/categories' && method === 'GET') return done(getCategories(auth), auth);
   if (path === '/api/categories' && method === 'POST') return done(await postCategories(req, auth), auth);
@@ -109,7 +121,11 @@ async function routeApi(req: Request, url: URL, ip: string): Promise<{ resp: Res
   if (path === '/api/visits' && method === 'GET') return done(getVisits(url, auth), auth);
 
   const visitId = match(path, '/api/visits');
-  if (visitId && method === 'DELETE') return done(deleteVisitById(auth, visitId), auth);
+  if (visitId) {
+    if (method === 'GET') return done(getVisitById(auth, visitId), auth);
+    if (method === 'PUT') return done(await putVisit(req, auth, visitId), auth);
+    if (method === 'DELETE') return done(deleteVisitById(auth, visitId), auth);
+  }
 
   return done(errorResponse('not found', 404), auth);
 }

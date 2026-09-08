@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api.ts';
 import { navigate } from '../useHashRoute.ts';
+import { prepareAll } from '../photos.ts';
 import { SkeletonCard } from '../components/Skeleton.tsx';
+import { PhotoGrid } from '../components/PhotoGrid.tsx';
+import { type ConfirmRequest, ConfirmSheet } from '../components/Sheet.tsx';
 import { ChevronDown, Close, Plus } from '../icons.tsx';
-import type { Category, CostLevel, Place, PlaceEnvironment, PlaceStatus, Tristate } from '../types.ts';
+import type { Category, CostLevel, Photo, Place, PlaceEnvironment, PlaceStatus, Tristate } from '../types.ts';
 import ui from '../ui.module.css';
 import css from './PlaceForm.module.css';
 
@@ -118,6 +121,10 @@ function toBody(f: FormState) {
 export function PlaceForm({ id }: { id?: string }) {
   const [form, setForm] = useState<FormState>(EMPTY);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(!!id);
@@ -130,6 +137,19 @@ export function PlaceForm({ id }: { id?: string }) {
       .finally(() => setLoading(false));
   }, [id]);
 
+  const loadPhotos = useCallback(async () => {
+    if (!id) return;
+    try {
+      setPhotos((await api.photos({ placeId: id })).photos);
+    } catch (err) {
+      setPhotoError(err instanceof Error ? err.message : 'could not load photos');
+    }
+  }, [id]);
+
+  useEffect(() => {
+    loadPhotos();
+  }, [loadPhotos]);
+
   // The picker offers the household's categories, so the field is a closed list.
   useEffect(() => {
     api.categories().then((d) => setCategories(d.categories)).catch(() => setCategories([]));
@@ -140,6 +160,46 @@ export function PlaceForm({ id }: { id?: string }) {
     const { category } = await api.createCategory(name);
     setCategories((list) => [...list, category].sort((a, b) => a.name.localeCompare(b.name)));
     setForm((f) => ({ ...f, categoryIds: [...f.categoryIds, category.id] }));
+  }
+
+  /**
+   * Photos are uploaded and deleted immediately rather than on save. They are their own
+   * records, so holding them until the form is submitted would only risk losing them.
+   */
+  async function addPhotos(files: File[]) {
+    if (!id) return;
+
+    setAdding(true);
+    setPhotoError(null);
+    try {
+      const { prepared, failed } = await prepareAll(files);
+      if (failed.length) setPhotoError(`Could not read ${failed.join(', ')}`);
+      if (prepared.length) {
+        await api.uploadPhotos(id, prepared);
+        await loadPhotos();
+      }
+    } catch (err) {
+      setPhotoError(err instanceof Error ? err.message : 'could not add those photos');
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  function askDeletePhoto(photo: Photo) {
+    setConfirmRequest({
+      title: 'Delete this photo?',
+      body: 'It is removed from the home server for good.',
+      confirmLabel: 'Delete',
+      danger: true,
+      onConfirm: async () => {
+        try {
+          await api.deletePhoto(photo.id);
+          await loadPhotos();
+        } catch (err) {
+          setPhotoError(err instanceof Error ? err.message : 'could not delete that photo');
+        }
+      },
+    });
   }
 
   const set = <K extends keyof FormState>(key: K) => (value: FormState[K]) => setForm((f) => ({ ...f, [key]: value }));
@@ -293,6 +353,16 @@ export function PlaceForm({ id }: { id?: string }) {
           />
         </label>
       </Section>
+
+      {/* Only when editing: a place has to exist before a photo can belong to it. */}
+      {id && (
+        <Section title='Photos'>
+          {photoError && <p className={ui.error}>{photoError}</p>}
+          <PhotoGrid photos={photos} onAddFiles={addPhotos} adding={adding} onDelete={askDeletePhoto} />
+        </Section>
+      )}
+
+      <ConfirmSheet request={confirmRequest} onDismiss={() => setConfirmRequest(null)} />
 
       <div className={css.saveBar}>
         <div className={css.saveInner}>

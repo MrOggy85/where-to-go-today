@@ -277,8 +277,11 @@ SQLite stores only photo metadata:
 interface Photo {
   id: string;
   householdId: string;
-  visitId: string;
   placeId: string;
+
+  // Optional on purpose: a photo of a place does not have to belong to one outing, and
+  // deleting a visit keeps its photos on the place rather than destroying them.
+  visitId?: string;
 
   filename: string;
   contentType: string;
@@ -293,15 +296,27 @@ interface Photo {
 }
 ```
 
+A photo always has a place. Uploading from the all-photos view therefore requires choosing
+one first.
+
 Local photo storage requirements:
 
-- files live under a dedicated private data directory, for example `/data/photos/`
-- filenames are random/opaque rather than derived from user input
-- photo reads are authorized through the application
+- files live under a dedicated private data directory, `<data dir>/photos/`, beside the
+  SQLite file so one mount and one backup cover both
+- filenames are random/opaque rather than derived from user input, and written mode `0600`
+- photo reads are authorized through the application: `GET /api/photos/:id/file` is the only
+  path to the bytes, and it scopes on `household_id` before touching the disk
 - uploaded images are resized/compressed before long-term storage
-- deletion from the app removes both SQLite metadata and the local file
+- deletion from the app removes both SQLite metadata and the local file, including when the
+  rows disappear indirectly by cascade from a deleted place
 - the photo directory is included in backups
 - the web server must not expose the raw photo directory as unauthenticated static files
+
+Resizing happens **in the browser** before upload, not on the server. That is what keeps an
+image library out of the api: the canvas decodes whatever the platform can display, so an
+iPhone HEIC is normalised to JPEG on the way out, a phone photo travels as a few hundred KB
+instead of several MB, and EXIF (including GPS) is discarded rather than stored on the home
+server. The server validates type and size but owns no decoder.
 
 The app is **not** the canonical family photo archive. Photos are memory attachments to outings. Avoid building a replacement for Apple Photos / Google Photos.
 
@@ -552,6 +567,45 @@ Categories are picked from the household's list rather than typed, so the same i
 be spelled two ways. Creating one from inside the form is allowed; that is the only way a
 category is added without visiting the manage screen.
 
+### Visit
+
+Records a visit on any date, or corrects the date and note of one already recorded, and
+manages that visit's photos.
+
+The one-tap "we went here today" button stays on the place page, because that is the common
+case. This page is for everything else, and backdating is the normal reason to reach it.
+The place is not editable: an outing somewhere else is a different visit.
+
+### Photos
+
+Two galleries, both able to add and delete:
+
+- a place's own photos, whichever visit they came from or none at all
+- every photo in the household, newest first, each tile labelled with its place
+
+Only one size of each photo is stored, so grids lazy-load and reserve each tile's box from
+the stored dimensions rather than reflowing as images arrive.
+
+Enlarging a photo opens a full-screen viewer: left/right arrows or the on-screen buttons
+step through the set and wrap around, Escape or a tap outside closes it.
+
+Photos also appear where a place does, so the archive is visible without a detour:
+
+- the place page shows all of its photos above the planning attributes
+- the edit-place form has a Photos section that adds and deletes
+- a Today card, hero included, shows one row
+- a Places row shows up to two
+
+Wherever a grid can add, its trailing tile opens the file picker directly and uploads on
+pick. Photos are records in their own right, so they are never held pending a form save —
+that would only risk losing them. The two gallery pages keep the staged picker instead,
+because reviewing a batch before it lands is the point of those screens, and the all-photos
+one has to collect a place first.
+
+Those previews come from `photoIds` on the place payload, capped server-side. A list must
+never make a request per row to find out whether it has photos. The thumbnails are inert:
+they sit inside the row's own button, so the tap belongs to the row.
+
 ### Categories
 
 Manage the household's categories: add, rename, delete.
@@ -704,6 +758,8 @@ place_categories(category_id)
 visits(place_id, visited_at DESC)
 visits(visited_at DESC)
 photos(visit_id)
+photos(place_id, uploaded_at DESC)
+photos(household_id, uploaded_at DESC)
 sessions(expires_at)
 ```
 
@@ -855,12 +911,24 @@ GET    /api/visits/:id
 PUT    /api/visits/:id
 DELETE /api/visits/:id
 
-POST   /api/visits/:id/photos/upload
+GET    /api/photos
+POST   /api/places/:id/photos
+GET    /api/photos/:id/file
 DELETE /api/photos/:id
 
 GET    /api/settings
 PUT    /api/settings
 ```
+
+Photo upload is keyed on the place rather than the visit, because a photo needs a place and
+only optionally a visit; the visit, when there is one, rides along as a form field. It is
+`multipart/form-data` so several photos go up in one request, with `widths`, `heights` and
+`capturedAt` as parallel comma-separated lists — the server has no decoder to measure them
+itself. A batch is validated in full before anything is written, so one bad file rejects the
+whole upload instead of storing half of it.
+
+`GET /api/photos` takes optional `placeId` and `visitId`, which the place gallery and the
+visit page filter on. With neither it answers the all-photos view.
 
 `GET /api/today` should be the product-specific endpoint.
 
@@ -1080,7 +1148,9 @@ The following questions remain intentionally open and should be answered from re
 ### Visits and diary
 
 11. Is a star rating useful, or are free-form notes enough?
-12. What maximum dimensions/quality should compressed memory photos use?
+12. ~~What maximum dimensions/quality should compressed memory photos use?~~
+    **Decided 2026-09-08:** 1600px on the long edge, JPEG quality 0.82, one stored size.
+    Revisit if the grid feels heavy or the archive outgrows the disk.
 13. How long should the app retain compressed photos if local storage becomes constrained?
 
 ### Public hosting
@@ -1106,6 +1176,10 @@ An implementation agent may proceed with these defaults:
 - typical visit length is recorded in hours, not minutes
 - categories are household-owned records chosen from a list, never free text
 - deleting a category untags its places rather than being refused
+- a photo requires a place and only optionally a visit
+- deleting a visit keeps its photos, attached to the place
+- photos are resized in the browser to 1600px/JPEG q0.82 and stored at one size
+- photo bytes are only ever served by `GET /api/photos/:id/file`, never as static files
 - a place is either active or archived; "want to go" is derived from active and never visited
 - no hard post-visit cooldown, and no per-place cooldown override
 - never-visited places get only a small boost

@@ -1,6 +1,6 @@
 import type { Auth } from '../auth/session.ts';
 import { getPlace } from '../db/places.ts';
-import { createVisit, deleteVisit, listVisits, listVisitsForPlace } from '../db/visits.ts';
+import { createVisit, deleteVisit, getVisit, listVisits, listVisitsForPlace, updateVisit } from '../db/visits.ts';
 import {
   clampInt,
   errorResponse,
@@ -49,6 +49,37 @@ export async function postPlaceVisit(req: Request, auth: Auth, placeId: string):
   }
 }
 
+export function getVisitById(auth: Auth, id: string): Response {
+  const visit = getVisit(auth.householdId, id);
+  if (!visit) return errorResponse('visit not found', 404);
+  return jsonResponse({ visit, place: getPlace(auth.householdId, visit.placeId) });
+}
+
+/**
+ * Corrects the date or note of a recorded visit. The place is deliberately not editable:
+ * an outing to somewhere else is a different visit.
+ */
+export async function putVisit(req: Request, auth: Auth, id: string): Promise<Response> {
+  const existing = getVisit(auth.householdId, id);
+  if (!existing) return errorResponse('visit not found', 404);
+
+  const parsed = await readJson<{ visitedAt?: unknown; note?: unknown; rating?: unknown }>(req);
+  if (!parsed.ok) return parsed.resp;
+
+  try {
+    const visit = updateVisit(auth.householdId, id, {
+      visitedAt: optIsoDate(parsed.value.visitedAt, 'visitedAt') ?? existing.visitedAt,
+      note: optStr(parsed.value.note, 'note', MAX_NOTES),
+      rating: optInt(parsed.value.rating, 'rating', 1, 5),
+    });
+    return jsonResponse({ visit });
+  } catch (e) {
+    if (e instanceof ValidationError) return errorResponse(e.message);
+    throw e;
+  }
+}
+
+/** Photos survive: visit_id is ON DELETE SET NULL, so they stay on the place. */
 export function deleteVisitById(auth: Auth, id: string): Response {
   if (!deleteVisit(auth.householdId, id)) return errorResponse('visit not found', 404);
   return jsonResponse({ result: 'deleted' });

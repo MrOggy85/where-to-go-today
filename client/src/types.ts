@@ -20,6 +20,8 @@ export interface Place {
   name: string;
   status: PlaceStatus;
   categories: Category[];
+  /** Most recent photo ids, capped for list previews. The galleries fetch the full set. */
+  photoIds: string[];
   environment: PlaceEnvironment;
   address?: string;
   latitude?: number;
@@ -55,6 +57,20 @@ export interface Visit {
   rating?: number;
   createdAt: string;
   createdByProfileId?: string;
+}
+
+export interface Photo {
+  id: string;
+  placeId: string;
+  /** Absent when the photo belongs to the place but not to any one outing. */
+  visitId?: string;
+  placeName: string;
+  contentType: string;
+  sizeBytes: number;
+  width?: number;
+  height?: number;
+  capturedAt?: string;
+  uploadedAt: string;
 }
 
 export interface Profile {

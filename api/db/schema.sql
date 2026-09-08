@@ -112,3 +112,27 @@ CREATE TABLE IF NOT EXISTS visits (
 
 CREATE INDEX IF NOT EXISTS visits_place_visited ON visits(place_id, visited_at DESC);
 CREATE INDEX IF NOT EXISTS visits_household_visited ON visits(household_id, visited_at DESC);
+
+-- Compressed memory copies. The bytes live on disk under the data directory; only metadata
+-- is stored here. place_id is required but visit_id is not: a photo of a place does not
+-- have to belong to an outing, and deleting a visit keeps its photos on the place.
+CREATE TABLE IF NOT EXISTS photos (
+  id           TEXT PRIMARY KEY,
+  household_id TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+  place_id     TEXT NOT NULL REFERENCES places(id) ON DELETE CASCADE,
+  visit_id     TEXT REFERENCES visits(id) ON DELETE SET NULL,
+
+  filename     TEXT NOT NULL,
+  content_type TEXT NOT NULL,
+  size_bytes   INTEGER NOT NULL,
+  width        INTEGER,
+  height       INTEGER,
+
+  captured_at TEXT,
+  uploaded_at TEXT NOT NULL,
+  uploaded_by_profile_id TEXT REFERENCES profiles(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS photos_visit ON photos(visit_id);
+CREATE INDEX IF NOT EXISTS photos_place_uploaded ON photos(place_id, uploaded_at DESC);
+CREATE INDEX IF NOT EXISTS photos_household_uploaded ON photos(household_id, uploaded_at DESC);

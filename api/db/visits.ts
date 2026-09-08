@@ -41,10 +41,30 @@ export function listVisits(householdId: string, limit: number): Visit[] {
   ).map(toVisit);
 }
 
+export function getVisit(householdId: string, id: string): Visit | null {
+  const r = row<VisitRow>('SELECT * FROM visits WHERE household_id = ? AND id = ?', householdId, id);
+  return r ? toVisit(r) : null;
+}
+
 export interface VisitInput {
   visitedAt: string;
   note: string | null;
   rating: number | null;
+}
+
+/** The date and note are corrections; a different outing is a new visit, not an edit. */
+export function updateVisit(householdId: string, id: string, input: VisitInput): Visit | null {
+  if (!getVisit(householdId, id)) return null;
+
+  run(
+    'UPDATE visits SET visited_at = ?, note = ?, rating = ? WHERE household_id = ? AND id = ?',
+    input.visitedAt,
+    input.note,
+    input.rating,
+    householdId,
+    id,
+  );
+  return getVisit(householdId, id);
 }
 
 export function createVisit(

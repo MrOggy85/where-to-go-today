@@ -58,6 +58,8 @@
   --space-10: 40px;
   --space-12: 48px;
 
+  /* xs is for thumbnails, where sm would round away too much of a small square. */
+  --radius-xs: 6px;
   --radius-sm: 10px;
   --radius-md: 14px;
   --radius-lg: 20px;
@@ -82,6 +84,12 @@
    */
   --nav-height: 78px;
   --content-max: 640px;
+
+  /*
+   * Thumbnail edge in a list-row photo strip. Small enough that several fit a phone row,
+   * big enough to recognise the place. The strip clips to whole multiples of this.
+   */
+  --photo-thumb: 52px;
 }
 
 @media (prefers-reduced-motion: reduce) {

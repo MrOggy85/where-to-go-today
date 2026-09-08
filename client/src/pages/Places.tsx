@@ -5,6 +5,7 @@ import { describeLastVisit, travelSummary } from '../format.ts';
 import { Chip, ChipButton } from '../components/Chip.tsx';
 import { SkeletonList } from '../components/Skeleton.tsx';
 import { EmptyState } from '../components/EmptyState.tsx';
+import { PhotoStrip } from '../components/PhotoStrip.tsx';
 import { ChevronRight, MapPin, Plus, Search, Sparkle } from '../icons.tsx';
 import type { CategoryWithCount, Place } from '../types.ts';
 import ui from '../ui.module.css';
@@ -135,6 +136,8 @@ export function Places() {
               <span className={css.nameText}>{p.name}</span>
               {p.priority >= 3 && <Sparkle size={15} className={css.star} />}
             </span>
+            {/* Two rows here: the list is for browsing, so it can afford more of a preview. */}
+            <PhotoStrip ids={p.photoIds} rows={2} />
             <span className={ui.metaQuiet}>
               {[p.environment, travelSummary(p), describeLastVisit(p.lastVisitedAt)].filter(Boolean).join(' · ')}
             </span>

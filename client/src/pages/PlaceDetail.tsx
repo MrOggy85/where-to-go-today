@@ -2,9 +2,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api.ts';
 import { navigate } from '../useHashRoute.ts';
 import { describeLastVisit, formatDate, formatHours, travelSummary } from '../format.ts';
+import { prepareAll } from '../photos.ts';
 import { Chip } from '../components/Chip.tsx';
 import { SkeletonCard } from '../components/Skeleton.tsx';
 import { EmptyState } from '../components/EmptyState.tsx';
+import { PhotoGrid } from '../components/PhotoGrid.tsx';
 import { type ConfirmRequest, ConfirmSheet } from '../components/Sheet.tsx';
 import {
   Archive,
@@ -15,23 +17,29 @@ import {
   Coin,
   ExternalLink,
   Food,
+  Image,
   MapPin,
   Parking,
   Pencil,
+  Plus,
   Toilet,
   Train,
   Trash,
   Tree,
   Umbrella,
 } from '../icons.tsx';
-import type { Place, Tristate, Visit } from '../types.ts';
+import type { Photo, Place, Tristate, Visit } from '../types.ts';
 import ui from '../ui.module.css';
 import css from './PlaceDetail.module.css';
 
 export function PlaceDetail({ id }: { id: string }) {
   const [place, setPlace] = useState<Place | null>(null);
   const [visits, setVisits] = useState<Visit[]>([]);
+  const [photos, setPhotos] = useState<Photo[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // Kept apart from `error`, which replaces the whole page when the place fails to load.
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
   const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null);
@@ -39,9 +47,10 @@ export function PlaceDetail({ id }: { id: string }) {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const data = await api.place(id);
+      const [data, photoData] = await Promise.all([api.place(id), api.photos({ placeId: id })]);
       setPlace(data.place);
       setVisits(data.visits);
+      setPhotos(photoData.photos);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'could not load this place');
     }
@@ -63,6 +72,24 @@ export function PlaceDetail({ id }: { id: string }) {
       setError(err instanceof Error ? err.message : 'could not record the visit');
     } finally {
       setBusy(false);
+    }
+  }
+
+  /** Uploads straight from the grid's add tile: there is no form here to save first. */
+  async function addPhotos(files: File[]) {
+    setAdding(true);
+    setPhotoError(null);
+    try {
+      const { prepared, failed } = await prepareAll(files);
+      if (failed.length) setPhotoError(`Could not read ${failed.join(', ')}`);
+      if (prepared.length) {
+        await api.uploadPhotos(id, prepared);
+        await load();
+      }
+    } catch (err) {
+      setPhotoError(err instanceof Error ? err.message : 'could not add those photos');
+    } finally {
+      setAdding(false);
     }
   }
 
@@ -131,6 +158,16 @@ export function PlaceDetail({ id }: { id: string }) {
         {justSaved ? 'Recorded' : 'We went here today'}
       </button>
 
+      {/* The one-tap button covers today; anything else goes through the visit page. */}
+      <button
+        type='button'
+        className={css.secondary}
+        onClick={() => navigate(`/places/${id}/visits/new`)}
+      >
+        <Plus size={18} />
+        Add a visit on another day
+      </button>
+
       <div className={css.actions}>
         {place.googleMapsUrl && (
           <a className={css.action} href={place.googleMapsUrl} target='_blank' rel='noreferrer'>
@@ -144,6 +181,10 @@ export function PlaceDetail({ id }: { id: string }) {
             Website
           </a>
         )}
+        <button type='button' className={css.action} onClick={() => navigate(`/places/${id}/photos`)}>
+          <Image size={20} />
+          Photos
+        </button>
         <button type='button' className={css.action} onClick={() => navigate(`/places/${id}/edit`)}>
           <Pencil size={20} />
           Edit
@@ -153,6 +194,10 @@ export function PlaceDetail({ id }: { id: string }) {
           {place.visitCount > 0 ? 'Archive' : 'Delete'}
         </button>
       </div>
+
+      {/* Above the attributes: remembering the place beats re-reading its opening hours. */}
+      {photoError && <p className={ui.error}>{photoError}</p>}
+      <PhotoGrid photos={photos} onAddFiles={addPhotos} adding={adding} />
 
       <Attributes place={place} />
 
@@ -177,10 +222,15 @@ export function PlaceDetail({ id }: { id: string }) {
             {visits.map((v) => (
               <li key={v.id} className={css.visit}>
                 <span className={css.dot} />
-                <span className={css.visitBody}>
+                {/* Opens the visit page, which is where its photos are managed. */}
+                <button
+                  type='button'
+                  className={css.visitOpen}
+                  onClick={() => navigate(`/visits/${v.id}`)}
+                >
                   <span className={css.visitDate}>{formatDate(v.visitedAt)}</span>
                   {v.note && <span className={css.visitNote}>{v.note}</span>}
-                </span>
+                </button>
                 <button
                   type='button'
                   className={css.visitRemove}
