@@ -8,9 +8,12 @@ export type Route =
   | { name: 'editPlace'; id: string }
   | { name: 'placePhotos'; id: string }
   | { name: 'newVisit'; placeId: string }
+  /** A visit recorded from the visits list, where the place is picked in the form. */
+  | { name: 'logVisit' }
   | { name: 'visit'; id: string }
   | { name: 'categories' }
-  | { name: 'photos' };
+  | { name: 'photos' }
+  | { name: 'visits' };
 
 function parse(hash: string): Route {
   const path = hash.replace(/^#\/?/, '');
@@ -18,7 +21,10 @@ function parse(hash: string): Route {
 
   if (parts[0] === 'categories') return { name: 'categories' };
   if (parts[0] === 'photos') return { name: 'photos' };
+  // "new" before the id case, or it would be read as one.
+  if (parts[0] === 'visits' && parts[1] === 'new') return { name: 'logVisit' };
   if (parts[0] === 'visits' && parts[1]) return { name: 'visit', id: parts[1] };
+  if (parts[0] === 'visits') return { name: 'visits' };
   if (parts[0] !== 'places') return { name: 'today' };
   if (parts.length === 1) return { name: 'places' };
   if (parts[1] === 'new') return { name: 'newPlace' };

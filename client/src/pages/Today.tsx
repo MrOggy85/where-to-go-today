@@ -80,7 +80,7 @@ export function Today() {
           </span>
           <button
             type='button'
-            className={ui.buttonSmall}
+            className={ui.button}
             aria-expanded={showControls}
             onClick={() => setShowControls((v) => !v)}
           >

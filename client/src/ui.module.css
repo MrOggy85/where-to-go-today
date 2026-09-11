@@ -129,12 +129,6 @@
   background: var(--positive);
 }
 
-.buttonSmall {
-  composes: button;
-  min-height: 38px;
-  padding: 0 var(--space-3);
-}
-
 /* Text-only affordance for secondary actions that should not compete. */
 .buttonQuiet {
   align-items: center;
@@ -161,6 +155,43 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+}
+
+/* The one "add" action a list page gets, floating clear of the bottom nav. */
+.fab {
+  align-items: center;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-pill);
+  bottom: calc(var(--nav-height) + env(safe-area-inset-bottom) + var(--space-4));
+  box-shadow: var(--shadow-lg);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  font-size: var(--text-base);
+  font-weight: var(--weight-semi);
+  gap: var(--space-2);
+  height: 52px;
+  padding: 0 var(--space-5);
+  position: fixed;
+  right: var(--space-4);
+  transition: transform var(--dur) var(--ease);
+  z-index: 15;
+}
+
+.fab:active {
+  transform: scale(0.94);
+}
+
+/* Keeps the last row of a list clear of the floating button. */
+.fabGap {
+  height: 72px;
+}
+
+@media (min-width: 700px) {
+  .fab {
+    right: calc(50vw - var(--content-max) / 2 + var(--space-4));
+  }
 }
 
 /* ---- forms ---- */

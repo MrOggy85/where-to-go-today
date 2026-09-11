@@ -17,7 +17,7 @@ const MAX_FILE_BYTES = 6 * 1024 * 1024;
 const MAX_UPLOAD_BYTES = 30 * 1024 * 1024;
 const MAX_FILES_PER_UPLOAD = 20;
 
-/** Cap per place so one outing cannot fill the home server's disk. */
+/** Cap per place so one visit cannot fill the home server's disk. */
 const MAX_PHOTOS_PER_PLACE = 300;
 
 export function getPhotos(url: URL, auth: Auth): Response {
@@ -58,7 +58,7 @@ export async function getPhotoFile(auth: Auth, id: string): Promise<Response> {
 
 /**
  * Multipart upload of one or more images against a place. `visitId` is optional: a photo
- * needs a place, not an outing.
+ * needs a place, not a visit.
  */
 export async function postPlacePhotos(req: Request, auth: Auth, placeId: string): Promise<Response> {
   if (!getPlace(auth.householdId, placeId)) return errorResponse('place not found', 404);

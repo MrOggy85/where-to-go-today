@@ -108,6 +108,16 @@
   background: var(--danger);
 }
 
+/*
+ * A 30px badge is all a tile corner can carry, so the target is grown past the paint to
+ * clear --tap. It spills 7px, well inside the grid's 8px gap, so no neighbour is stolen.
+ */
+.remove::after {
+  content: '';
+  inset: calc((var(--tap) - 30px) / -2);
+  position: absolute;
+}
+
 /* ---- lightbox ---- */
 
 .lightbox {

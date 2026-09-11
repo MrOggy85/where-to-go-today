@@ -1,4 +1,14 @@
-import type { Category, CategoryWithCount, Me, Photo, Place, TodayResponse, Visit, WeatherPicks } from './types.ts';
+import type {
+  Category,
+  CategoryWithCount,
+  Me,
+  Photo,
+  Place,
+  TodayResponse,
+  Visit,
+  VisitWithPlace,
+  WeatherPicks,
+} from './types.ts';
 import type { PreparedPhoto } from './photos.ts';
 
 export class ApiError extends Error {
@@ -76,6 +86,10 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+
+  /** The visits list, newest first. Older pages come back by offset. */
+  visits: (limit: number, offset = 0) =>
+    request<{ visits: VisitWithPlace[] }>(`/api/visits?limit=${limit}&offset=${offset}`),
 
   visit: (id: string) => request<{ visit: Visit; place: Place }>(`/api/visits/${id}`),
 

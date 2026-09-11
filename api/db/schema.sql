@@ -96,7 +96,7 @@ CREATE TABLE IF NOT EXISTS place_categories (
 
 CREATE INDEX IF NOT EXISTS place_categories_category ON place_categories(category_id);
 
--- Append-only outing log. lastVisitedAt is derived with MAX(visited_at), never stored.
+-- Append-only visit log. lastVisitedAt is derived with MAX(visited_at), never stored.
 CREATE TABLE IF NOT EXISTS visits (
   id           TEXT PRIMARY KEY,
   household_id TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,
@@ -115,7 +115,7 @@ CREATE INDEX IF NOT EXISTS visits_household_visited ON visits(household_id, visi
 
 -- Compressed memory copies. The bytes live on disk under the data directory; only metadata
 -- is stored here. place_id is required but visit_id is not: a photo of a place does not
--- have to belong to an outing, and deleting a visit keeps its photos on the place.
+-- have to belong to a visit, and deleting a visit keeps its photos on the place.
 CREATE TABLE IF NOT EXISTS photos (
   id           TEXT PRIMARY KEY,
   household_id TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,

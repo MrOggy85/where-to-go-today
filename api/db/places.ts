@@ -244,8 +244,8 @@ export function updatePlace(householdId: string, id: string, input: PlaceInput):
 export type DeleteResult = 'deleted' | 'archived' | 'missing';
 
 /**
- * Places with visit history are archived, not destroyed: the diary is the point of the
- * app and a delete tap should never silently erase years of outings.
+ * Places with visit history are archived, not destroyed: that history is the point of the
+ * app and a delete tap should never silently erase years of it.
  *
  * Photo rows cascade with the place, so their filenames come back for the caller to unlink;
  * file IO stays out of the db layer.
