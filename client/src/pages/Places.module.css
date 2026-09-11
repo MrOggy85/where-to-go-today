@@ -46,9 +46,23 @@
   display: none;
 }
 
+/* The select takes the room; the manage button only ever needs its own label. */
+.categoryRow {
+  align-items: center;
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
 .categorySelect {
   composes: select from '../ui.module.css';
-  margin-top: var(--space-3);
+  flex: 1;
+  min-width: 0;
+}
+
+.categoryManage {
+  composes: button from '../ui.module.css';
+  flex: none;
 }
 
 .count {
@@ -122,42 +136,4 @@
 .chevron {
   color: var(--ink-3);
   flex: none;
-}
-
-/* ---- add ---- */
-
-.fab {
-  align-items: center;
-  background: var(--accent);
-  border: none;
-  border-radius: var(--radius-pill);
-  bottom: calc(var(--nav-height) + env(safe-area-inset-bottom) + var(--space-4));
-  box-shadow: var(--shadow-lg);
-  color: #fff;
-  cursor: pointer;
-  display: flex;
-  font-size: var(--text-base);
-  font-weight: var(--weight-semi);
-  gap: var(--space-2);
-  height: 52px;
-  padding: 0 var(--space-5);
-  position: fixed;
-  right: var(--space-4);
-  transition: transform var(--dur) var(--ease);
-  z-index: 15;
-}
-
-.fab:active {
-  transform: scale(0.94);
-}
-
-/* Keep the last card clear of the floating button. */
-.bottomGap {
-  height: 72px;
-}
-
-@media (min-width: 700px) {
-  .fab {
-    right: calc(50vw - var(--content-max) / 2 + var(--space-4));
-  }
 }

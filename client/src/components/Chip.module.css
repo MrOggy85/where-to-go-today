@@ -40,6 +40,7 @@
   cursor: pointer;
   min-height: 38px;
   padding: 0 var(--space-4);
+  position: relative;
   transition:
     background var(--dur) var(--ease),
     box-shadow var(--dur) var(--ease),
@@ -49,6 +50,16 @@
 
 .selectable:active {
   transform: scale(0.96);
+}
+
+/*
+ * 38px keeps a row of filters from dominating the page, so the target is grown past the
+ * paint to clear --tap. It spills 3px into an 8px gap, so two chips never share a tap.
+ */
+.selectable::after {
+  content: '';
+  inset: calc((var(--tap) - 38px) / -2) 0;
+  position: absolute;
 }
 
 .selected {

@@ -37,8 +37,12 @@ update it in the same change when a new requirement conflicts with it.
   `currentColor`. No icon font, no sprite sheet.
 - No `window.confirm` or `alert`; use `components/Sheet.tsx`. No bare `Loading…`; use
   `components/Skeleton.tsx`.
-- Interactive targets are at least `--tap` (44px). Animation goes through `--dur`/`--ease`
-  so `prefers-reduced-motion` disables it in one place.
+- Interactive targets are at least `--tap` (44px). Where a control has to look smaller than
+  that — a filter chip, a corner badge — grow the target past the paint with a
+  `position: absolute` `::after` rather than inflating the control. Check the overhang stays
+  inside the neighbouring gap. Layouts are checked at 390x844 (iPhone 14).
+- Animation goes through `--dur`/`--ease` so `prefers-reduced-motion` disables it in one
+  place.
 - An unset place attribute renders nothing at all. "Unknown" is not "no".
 
 ## Conventions

@@ -15,6 +15,16 @@ export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
+/** Month heading on the visits list, e.g. "September 2026"; rows then omit the year. */
+export function formatMonth(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+}
+
+/** A visit row's date. The weekday earns its space: visits cluster on weekends. */
+export function formatDayShort(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
 /** The Today page title, e.g. "Sunday, 7 September". */
 export function formatToday(now = new Date()): string {
   return now.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });

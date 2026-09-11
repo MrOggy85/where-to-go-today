@@ -94,7 +94,7 @@ export function PlacePhotos({ id }: { id: string }) {
           <EmptyState
             icon={<Image size={26} />}
             headline='No photos yet'
-            body='Add a few from an outing here, or attach them to a particular visit from the place page.'
+            body='Add a few here, or attach them to a particular visit from the place page.'
           />
         )
         : <PhotoGrid photos={photos} onDelete={askDelete} />}

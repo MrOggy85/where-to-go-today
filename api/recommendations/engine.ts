@@ -161,7 +161,7 @@ function scorePlace(place: Place, ctx: RecommendationContext, w: WeatherClass | 
     else if (travel <= TRAVEL.close.maxMinutes) score += TRAVEL.close.score;
     else if (travel <= TRAVEL.normal.maxMinutes) score += TRAVEL.normal.score;
     else score += TRAVEL.far.score;
-    travelReasons.push(describeTravel(place));
+    travelReasons.push(...describeTravel(place));
   }
 
   // ---- household priority ----
@@ -188,9 +188,14 @@ export function describeLastVisit(days: number): string {
   return `Last visited ${Math.floor(days / 365)}+ years ago`;
 }
 
-function describeTravel(p: Place): string {
+/**
+ * One reason per mode rather than one joined string. Two short chips pack onto a single
+ * line of a phone card where one long one does not, and the wording then matches the
+ * place list's own travel summary.
+ */
+function describeTravel(p: Place): string[] {
   const parts: string[] = [];
   if (p.driveMinutes !== undefined) parts.push(`${p.driveMinutes} min drive`);
-  if (p.trainMinutes !== undefined) parts.push(`${p.trainMinutes} min by train`);
-  return parts.join(' · ');
+  if (p.trainMinutes !== undefined) parts.push(`${p.trainMinutes} min train`);
+  return parts;
 }

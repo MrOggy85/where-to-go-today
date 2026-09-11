@@ -59,10 +59,16 @@ export interface Visit {
   createdByProfileId?: string;
 }
 
+/** A list row: the visit plus everything it takes to render one without another request. */
+export interface VisitWithPlace extends Visit {
+  placeName: string;
+  photoIds: string[];
+}
+
 export interface Photo {
   id: string;
   placeId: string;
-  /** Absent when the photo belongs to the place but not to any one outing. */
+  /** Absent when the photo belongs to the place but not to any one visit. */
   visitId?: string;
   placeName: string;
   contentType: string;

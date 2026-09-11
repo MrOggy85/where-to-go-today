@@ -214,7 +214,7 @@ export function PlaceDetail({ id }: { id: string }) {
           <EmptyState
             icon={<Calendar size={26} />}
             headline='No visits yet'
-            body='Tap "We went here today" after an outing and it will show up here.'
+            body='Tap "We went here today" when you get back and it will show up here.'
           />
         )
         : (

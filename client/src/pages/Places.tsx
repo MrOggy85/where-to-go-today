@@ -6,7 +6,7 @@ import { Chip, ChipButton } from '../components/Chip.tsx';
 import { SkeletonList } from '../components/Skeleton.tsx';
 import { EmptyState } from '../components/EmptyState.tsx';
 import { PhotoStrip } from '../components/PhotoStrip.tsx';
-import { ChevronRight, MapPin, Plus, Search, Sparkle } from '../icons.tsx';
+import { ChevronRight, MapPin, Plus, Search, Sparkle, Tag } from '../icons.tsx';
 import type { CategoryWithCount, Place } from '../types.ts';
 import ui from '../ui.module.css';
 import css from './Places.module.css';
@@ -77,17 +77,24 @@ export function Places() {
           ))}
         </div>
 
-        {categories.length > 0 && (
-          <select
-            className={css.categorySelect}
-            aria-label='Filter by category'
-            value={categoryId}
-            onChange={(e) => setCategoryId(e.target.value)}
-          >
-            <option value=''>Any category</option>
-            {categories.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.placeCount})</option>)}
-          </select>
-        )}
+        {/* The manage screen has no tab; this is where categories are already on the mind. */}
+        <div className={css.categoryRow}>
+          {categories.length > 0 && (
+            <select
+              className={css.categorySelect}
+              aria-label='Filter by category'
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value)}
+            >
+              <option value=''>Any category</option>
+              {categories.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.placeCount})</option>)}
+            </select>
+          )}
+          <button type='button' className={css.categoryManage} onClick={() => navigate('/categories')}>
+            <Tag size={18} />
+            Categories
+          </button>
+        </div>
       </div>
 
       {error && <p className={ui.error}>{error}</p>}
@@ -151,9 +158,9 @@ export function Places() {
         </button>
       ))}
 
-      <div className={css.bottomGap} />
+      <div className={ui.fabGap} />
 
-      <button type='button' className={css.fab} onClick={() => navigate('/places/new')}>
+      <button type='button' className={ui.fab} onClick={() => navigate('/places/new')}>
         <Plus size={20} />
         Add place
       </button>

@@ -36,7 +36,7 @@ export function Photos() {
 
   useEffect(() => {
     load();
-    // Archived places are included: their photos are still part of the diary.
+    // Archived places are included: their photos are still part of the history.
     api.places({ status: 'archived' })
       .then((archived) => api.places().then((active) => [...active.places, ...archived.places]))
       .then((all) => setPlaces(all.sort((a, b) => a.name.localeCompare(b.name))))

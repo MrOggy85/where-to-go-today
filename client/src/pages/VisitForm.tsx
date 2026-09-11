@@ -3,9 +3,11 @@ import { api } from '../api.ts';
 import { navigate } from '../useHashRoute.ts';
 import type { PreparedPhoto } from '../photos.ts';
 import { SkeletonCard } from '../components/Skeleton.tsx';
+import { EmptyState } from '../components/EmptyState.tsx';
 import { PhotoGrid } from '../components/PhotoGrid.tsx';
 import { PhotoPicker } from '../components/PhotoPicker.tsx';
 import { type ConfirmRequest, ConfirmSheet } from '../components/Sheet.tsx';
+import { MapPin } from '../icons.tsx';
 import type { Photo, Place, Visit } from '../types.ts';
 import ui from '../ui.module.css';
 import css from './VisitForm.module.css';
@@ -25,9 +27,16 @@ function fromDateInput(value: string): string {
 /**
  * Records a visit on any date, or corrects one already recorded. The "we went here today"
  * button on the place page stays as the one-tap path; this is the page for everything else.
+ *
+ * With neither id it is reached from the visits list, where there is no place in hand yet,
+ * so the form asks for one. An existing visit never does: its place is fixed, because
+ * somewhere else is a different visit.
  */
 export function VisitForm({ placeId, visitId }: { placeId?: string; visitId?: string }) {
+  const picking = !placeId && !visitId;
+
   const [place, setPlace] = useState<Place | null>(null);
+  const [places, setPlaces] = useState<Place[]>([]);
   const [visit, setVisit] = useState<Visit | null>(null);
   const [date, setDate] = useState(() => toDateInput(new Date().toISOString()));
   const [note, setNote] = useState('');
@@ -56,6 +65,11 @@ export function VisitForm({ placeId, visitId }: { placeId?: string; visitId?: st
         } else if (placeId) {
           const data = await api.place(placeId);
           setPlace(data.place);
+        } else {
+          // Archived places are offered too: backdating a visit to one is the usual
+          // reason it got archived in the first place.
+          const [active, archived] = await Promise.all([api.places(), api.places({ status: 'archived' })]);
+          setPlaces([...active.places, ...archived.places].sort((a, b) => a.name.localeCompare(b.name)));
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'could not load this visit');
@@ -65,6 +79,11 @@ export function VisitForm({ placeId, visitId }: { placeId?: string; visitId?: st
     }
     load();
   }, [placeId, visitId, loadPhotos]);
+
+  /** The visits list sent us here, so that is where a save or a cancel goes back to. */
+  function leave(to?: Place | null) {
+    navigate(picking || !to ? '/visits' : `/places/${to.id}`);
+  }
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -80,7 +99,7 @@ export function VisitForm({ placeId, visitId }: { placeId?: string; visitId?: st
           .id;
 
       if (staged.length) await api.uploadPhotos(place.id, staged, id);
-      navigate(`/places/${place.id}`);
+      leave(place);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'could not save this visit');
     } finally {
@@ -123,16 +142,44 @@ export function VisitForm({ placeId, visitId }: { placeId?: string; visitId?: st
   }
 
   if (loading) return <SkeletonCard lines={3} />;
-  if (!place) return <p className={ui.error}>{error ?? 'could not load this visit'}</p>;
+  if (!place && !picking) return <p className={ui.error}>{error ?? 'could not load this visit'}</p>;
+
+  // A visit needs somewhere to have been, so an empty database is a dead end, not a form.
+  if (picking && !places.length) {
+    return (
+      <EmptyState
+        icon={<MapPin size={26} />}
+        headline='No places yet'
+        body='A visit belongs to a place. Add the first one and you can record visits to it.'
+        actionLabel='Add a place'
+        onAction={() => navigate('/places/new')}
+      />
+    );
+  }
 
   return (
     <form className={css.form} onSubmit={save}>
       <h1 className={css.title}>{visit ? 'Edit visit' : 'Add a visit'}</h1>
-      <p className={ui.metaQuiet}>{place.name}</p>
+      <p className={ui.metaQuiet}>{place ? place.name : 'Somewhere you have already been, on any date.'}</p>
 
       {error && <p className={ui.error}>{error}</p>}
 
       <div className={css.card}>
+        {picking && (
+          <label className={ui.field}>
+            <span className={ui.fieldLabel}>Place</span>
+            <select
+              className={ui.select}
+              value={place?.id ?? ''}
+              onChange={(e) => setPlace(places.find((p) => p.id === e.target.value) ?? null)}
+              required
+            >
+              <option value=''>Choose a place…</option>
+              {places.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </label>
+        )}
+
         <label className={ui.field}>
           <span className={ui.fieldLabel}>Date</span>
           <input
@@ -170,14 +217,10 @@ export function VisitForm({ placeId, visitId }: { placeId?: string; visitId?: st
 
       <div className={css.saveBar}>
         <div className={css.saveInner}>
-          <button
-            type='button'
-            className={css.cancel}
-            onClick={() => navigate(`/places/${place.id}`)}
-          >
+          <button type='button' className={css.cancel} onClick={() => leave(place)}>
             Cancel
           </button>
-          <button className={css.save} type='submit' disabled={busy || !date}>
+          <button className={css.save} type='submit' disabled={busy || !date || !place}>
             {busy ? 'Saving…' : visit ? 'Save changes' : 'Record visit'}
           </button>
         </div>

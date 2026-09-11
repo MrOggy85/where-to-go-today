@@ -23,7 +23,11 @@ The app keeps a curated database of:
 
 Its primary job is **decision support and inspiration**.
 
-Its secondary job is to become a lightweight **family outing diary**.
+Its secondary job is to become a lightweight **record of where the family has been**.
+
+One word for that record throughout, in the UI and in the code: a **visit**. Not an outing,
+not a diary entry, not a log. "Outing" stays for the real-world activity being planned; the
+thing the app stores is always a visit.
 
 This is not intended to replace Google Maps. Google Maps remains useful for navigation, reviews, opening hours, and discovering arbitrary places. This app is a small opinionated layer over the subset of places that matter to our family.
 
@@ -279,7 +283,7 @@ interface Photo {
   householdId: string;
   placeId: string;
 
-  // Optional on purpose: a photo of a place does not have to belong to one outing, and
+  // Optional on purpose: a photo of a place does not have to belong to one visit, and
   // deleting a visit keeps its photos on the place rather than destroying them.
   visitId?: string;
 
@@ -318,7 +322,7 @@ iPhone HEIC is normalised to JPEG on the way out, a phone photo travels as a few
 instead of several MB, and EXIF (including GPS) is discarded rather than stored on the home
 server. The server validates type and size but owns no decoder.
 
-The app is **not** the canonical family photo archive. Photos are memory attachments to outings. Avoid building a replacement for Apple Photos / Google Photos.
+The app is **not** the canonical family photo archive. Photos are memory attachments to visits. Avoid building a replacement for Apple Photos / Google Photos.
 
 ## 10. Recommendation model
 
@@ -454,6 +458,10 @@ Possible reasons:
 
 The numeric score is primarily an implementation detail.
 
+Drive and train are two separate reasons, never one joined string. Section 13 wants both
+shown rather than collapsed, and two short chips fit a phone card on one line where one
+long one wraps to its own.
+
 ## 11. Weather integration
 
 Weather is external data and should be behind a small provider interface.
@@ -574,7 +582,11 @@ manages that visit's photos.
 
 The one-tap "we went here today" button stays on the place page, because that is the common
 case. This page is for everything else, and backdating is the normal reason to reach it.
-The place is not editable: an outing somewhere else is a different visit.
+
+Reached two ways, which differ only in whether a place is already in hand. From a place, it
+is fixed. From the visits list, the form asks for one first, offering archived places too —
+being archived is often exactly why a visit is being written up late. Editing an existing
+visit never offers the choice: somewhere else is a different visit, not an edit.
 
 ### Photos
 
@@ -595,6 +607,7 @@ Photos also appear where a place does, so the archive is visible without a detou
 - the edit-place form has a Photos section that adds and deletes
 - a Today card, hero included, shows one row
 - a Places row shows up to two
+- a Visits row shows the photos of that one visit
 
 Wherever a grid can add, its trailing tile opens the file picker directly and uploads on
 pick. Photos are records in their own right, so they are never held pending a form save —
@@ -602,8 +615,9 @@ that would only risk losing them. The two gallery pages keep the staged picker i
 because reviewing a batch before it lands is the point of those screens, and the all-photos
 one has to collect a place first.
 
-Those previews come from `photoIds` on the place payload, capped server-side. A list must
-never make a request per row to find out whether it has photos. The thumbnails are inert:
+Those previews come from `photoIds` on the place payload — and, on the visits list, on the
+visit payload — capped server-side. A list must never make a request per row to find out whether
+it has photos. The thumbnails are inert:
 they sit inside the row's own button, so the tap belongs to the row.
 
 ### Categories
@@ -614,18 +628,27 @@ Each row shows how many places carry it. Deleting removes the tag from those pla
 than refusing, and the confirmation says how many are affected. The places themselves are
 never touched.
 
-### Diary
+This is management, not browsing, so it has no tab of its own: it is reached from the
+category filter on Places. Five tabs do not fit a phone, and "Categories" is the label
+that has to give way.
 
-Reverse-chronological visit feed.
+### Visits
 
-Each entry can contain:
+Every visit, newest first, grouped by month. Each row shows the date with its weekday, the
+place, the note and a row of that visit's photos. Tapping one opens the visit, which is
+where all four are edited.
 
-- date
-- place
-- note
-- photos
+A plain list: no filters and no search, because this is secondary to planning and should
+not dominate the information architecture. Places count even when archived — the visit
+still happened.
 
-The diary is secondary to planning, so it should not dominate the information architecture.
+One action, "Add visit", which opens the visit page with the place still to be chosen.
+Writing a visit up days later starts from the date, not from the place, so it should not
+require finding the place first.
+
+Pages of 50 by offset rather than a cursor, which the deterministic `visited_at DESC,
+id DESC` order makes safe. A day of backdated visits shares one timestamp, so the id is
+what stops a page boundary skipping a row.
 
 ## 15. Adding a place
 
@@ -930,6 +953,10 @@ whole upload instead of storing half of it.
 `GET /api/photos` takes optional `placeId` and `visitId`, which the place gallery and the
 visit page filter on. With neither it answers the all-photos view.
 
+`GET /api/visits` is the visits list and takes `limit` and `offset`. Each row carries the
+place name and that visit's photo ids so the feed costs one request, not one per entry.
+`GET /api/visits/:id` stays the plain visit.
+
 `GET /api/today` should be the product-specific endpoint.
 
 Example response:
@@ -966,7 +993,7 @@ Examples:
 - image store unavailable -> place/visit data still works
 - Google Maps URL missing -> place still works
 - sparse place metadata -> place can still be recommended
-- one photo fails to load -> diary entry still renders
+- one photo fails to load -> the visit row still renders
 
 Do not make optional integrations capable of taking down the core app.
 
@@ -974,7 +1001,7 @@ Do not make optional integrations capable of taking down the core app.
 
 This is personal historical data, so export is more important than sophisticated infrastructure.
 
-Before the diary becomes meaningful, implement a practical backup/export strategy.
+Before the visit history becomes meaningful, implement a practical backup/export strategy.
 
 At minimum, the system should be able to export:
 
@@ -1069,7 +1096,7 @@ At the end of this phase the app should already answer "what should we do today?
 - uploads
 - private image retrieval
 - place photo history
-- diary feed
+- visits list
 
 ### Phase 4 — quality of life
 
@@ -1145,7 +1172,7 @@ The following questions remain intentionally open and should be answered from re
 9. Which planning attributes actually affect decisions: parking, cost, toilets, food, crowding, nap compatibility, shade, reservation requirement, etc.? Stroller access was tried and removed on 2026-09-08: it never changed a choice.
 10. Should restaurants/cafes live in the same database, or is the app specifically about activities/outings?
 
-### Visits and diary
+### Visits
 
 11. Is a star rating useful, or are free-form notes enough?
 12. ~~What maximum dimensions/quality should compressed memory photos use?~~
@@ -1211,7 +1238,7 @@ These are defaults, not permanent product commitments.
 
 Before adding a feature, ask:
 
-1. Does this help choose an outing, record an outing, or remember an outing?
+1. Does this help choose an outing, record a visit, or remember one?
 2. Can this be implemented without introducing another service or dependency?
 3. Is the new data actually useful to recommendation decisions?
 4. Does it keep adding a place and recording a visit fast?

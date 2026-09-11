@@ -115,7 +115,7 @@ export function Categories() {
         <EmptyState
           icon={<Tag size={26} />}
           headline='No categories yet'
-          body='Add the kinds of outing your family makes, like park, museum or playground. You can then tag places with them.'
+          body='Add the kinds of place your family visits, like park, museum or playground. You can then tag places with them.'
         />
       )}
 

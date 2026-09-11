@@ -15,15 +15,19 @@ import {
 
 const VISITS_LIMIT_DEFAULT = 50;
 const VISITS_LIMIT_MAX = 200;
+/** Far past any household's real history; only there to keep a silly offset out of SQL. */
+const VISITS_OFFSET_MAX = 100_000;
 
 export function getPlaceVisits(auth: Auth, placeId: string): Response {
   if (!getPlace(auth.householdId, placeId)) return errorResponse('place not found', 404);
   return jsonResponse({ visits: listVisitsForPlace(auth.householdId, placeId) });
 }
 
+/** The visits list. Paged by offset rather than a cursor; the order is fully deterministic. */
 export function getVisits(url: URL, auth: Auth): Response {
   const limit = clampInt(url.searchParams.get('limit'), 1, VISITS_LIMIT_MAX, VISITS_LIMIT_DEFAULT);
-  return jsonResponse({ visits: listVisits(auth.householdId, limit) });
+  const offset = clampInt(url.searchParams.get('offset'), 0, VISITS_OFFSET_MAX, 0);
+  return jsonResponse({ visits: listVisits(auth.householdId, limit, offset) });
 }
 
 /**
@@ -57,7 +61,7 @@ export function getVisitById(auth: Auth, id: string): Response {
 
 /**
  * Corrects the date or note of a recorded visit. The place is deliberately not editable:
- * an outing to somewhere else is a different visit.
+ * somewhere else is a different visit.
  */
 export async function putVisit(req: Request, auth: Auth, id: string): Promise<Response> {
   const existing = getVisit(auth.householdId, id);
