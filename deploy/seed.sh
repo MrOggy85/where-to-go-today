@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# Rootful daemon. The default context is rootless since 2026-10-26, so name it.
+export DOCKER_CONTEXT=default
 # Creates the household and profiles in the production volume. Run once after the first
 # ./start.sh - until it runs, login has nothing to check the password against.
 #

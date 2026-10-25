@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# Rootful daemon. The default context is rootless since 2026-10-26, so name it.
+export DOCKER_CONTEXT=default
 # Starts the api container. Requires the sidecar to be running first: this container
 # joins the sidecar's network namespace and cannot start without it.
 # Personal shell helpers if available; plain fallbacks otherwise so this runs anywhere.

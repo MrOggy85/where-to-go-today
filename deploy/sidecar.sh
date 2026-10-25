@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# Rootful daemon. The default context is rootless since 2026-10-26, so name it.
+export DOCKER_CONTEXT=default
 # Tailscale sidecar. Owns the public hostname, terminates TLS and proxies to the api
 # over the network namespace it shares with the app container.
 #

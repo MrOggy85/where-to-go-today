@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# Rootful daemon. The default context is rootless since 2026-10-26, so name it.
+export DOCKER_CONTEXT=default
 # Builds the app image. Separate from start.sh so a rebuild is always deliberate.
 # Personal shell helpers if available; plain fallbacks otherwise so this runs anywhere.
 if [[ -f "${UTIL_SH:-$HOME/scripts/util.sh}" ]]; then

@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# Rootful daemon. The default context is rootless since 2026-10-26, so name it.
+export DOCKER_CONTEXT=default
 # tailscaled runs as root in the container, so tailscale_state/ files it writes are
 # root-owned. tailscale_state/ is gitignored in this repo, so this is not about git - it
 # is so a plain-user backup of deploy/ does not fail on permission denied.
