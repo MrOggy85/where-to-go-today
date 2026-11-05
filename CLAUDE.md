@@ -77,6 +77,14 @@ Internet -> Tailscale Funnel -> wtgt-tailscale  -> where-to-go-today
   is `data/geo-allow.json`, refetched by the app when older than 7 days; a failed refetch keeps the old list.
   It fails closed — no list means tailnet only — and depends on `TRUST_PROXY=1`, without which every client
   looks like loopback and is admitted.
+- **The app's network is confined, because the sidecar is a tailnet node.** Sharing its namespace
+  used to mean a compromised app could open connections to every tailnet device, the host's ports
+  and the LAN (measured 2026-11-05: all open). `deploy/egress-firewall.sh` is the sidecar's
+  entrypoint and limits uid 1000 to DNS and public HTTPS before tailscaled starts, on every
+  restart; tailscaled (root) is untouched. If you add an outbound dependency to the api, it has
+  to fit that, or the rule has to change on purpose. The app container is also read-only,
+  capability-free, `no-new-privileges`, and bounded in processes and memory; only `data/` is
+  writable.
 - Start order is **sidecar, then app** — the app joins the sidecar's network namespace and
   cannot start before it exists. `make deploy-up` does both.
 - Recreating the sidecar destroys that namespace, so the app must be recreated too.

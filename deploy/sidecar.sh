@@ -20,6 +20,9 @@ set -uo pipefail
 cd "$(dirname "$0")"
 
 CONTAINER_NAME=wtgt-tailscale
+# Pinned by digest (v1.102.3): the entrypoint wrapper calls containerboot by path, and an
+# image that moved under it would fail on a restart nobody asked for. Upgrade deliberately.
+IMAGE=tailscale/tailscale@sha256:8c42c4574ab066384fcb72f69e086a2ff1dd3652eb6f56856cee34bcf0d2f680
 
 # The auth key is NOT inline here: this is a public repo, and PROJECT.md section 17
 # requires it to contain no production secrets.
@@ -52,11 +55,13 @@ docker run \
   -v "$PWD/tailscale_state:/var/lib/tailscale" \
   -v /dev/net/tun:/dev/net/tun \
   -v "$PWD/serve.json:/config/serve.json:ro" \
+  -v "$PWD/egress-firewall.sh:/config/egress-firewall.sh:ro" \
+  --entrypoint /bin/sh \
   --dns 8.8.8.8 \
   --network=bridge \
   --cap-add=NET_ADMIN \
-  --cap-add=SYS_MODULE \
   --cap-add=NET_BIND_SERVICE \
+  --security-opt no-new-privileges \
   -e TS_AUTHKEY="$TS_AUTHKEY" \
   -e TS_STATE_DIR=/var/lib/tailscale \
   -e TS_SERVE_CONFIG=/config/serve.json \
@@ -64,7 +69,15 @@ docker run \
   -e TS_USERSPACE=false \
   -e TS_EXTRA_ARGS="--accept-dns=false" \
   --restart=always \
-  tailscale/tailscale
+  "$IMAGE" /config/egress-firewall.sh
+
+# egress-firewall.sh is the entrypoint, and it is not optional: it confines the app's
+# uid to DNS and public HTTPS before tailscaled starts, on every restart. Without it the
+# app can reach every tailnet device, the host's ports and the LAN. It ends by exec'ing
+# the image's own containerboot.
+#
+# SYS_MODULE was dropped 2026-11-05: root in a container that may load kernel modules is
+# root on the host, and the tun module the image would load is already loaded.
 
 # tailscaled runs as root inside the container (kernel mode needs iptables), so
 # everything it writes to tailscale_state/ lands root-owned. Nothing there is committed

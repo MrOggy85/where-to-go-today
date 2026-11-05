@@ -40,12 +40,22 @@ docker run \
   -u 1000 \
   --network=container:$SIDECAR_NAME \
   -v "$PWD/data:/app/data" \
+  --read-only \
+  --tmpfs /tmp:size=64m \
+  --cap-drop ALL \
+  --security-opt no-new-privileges \
+  --pids-limit 256 \
+  --memory 512m \
   -e TZ=Asia/Tokyo \
   -e TRUST_PROXY=1 \
   -e GEO_ALLOW_COUNTRIES=JP \
   --restart=always \
   where-to-go-today:latest
 
+# Blast radius, if the app is ever taken over: the only writable path is data/ (its own
+# database and photos); no capabilities, no setuid escalation, a read-only image, and
+# bounded processes and memory. Its network is confined by the sidecar's
+# egress-firewall.sh to DNS and public HTTPS - no tailnet, no host ports, no LAN.
 # TRUST_PROXY is set deliberately and is not optional here. The login throttle in
 # api/auth/guard.ts keys on the client IP; behind the sidecar every request arrives over
 # loopback, so without it the entire internet shares one 10-per-15-minute bucket and ten
