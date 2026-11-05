@@ -72,6 +72,11 @@ Internet -> Tailscale Funnel -> wtgt-tailscale  -> where-to-go-today
                                 (TLS, own node)    (--network=container:, shared loopback)
 ```
 
+- **Production admits Japan and the tailnet only** (`GEO_ALLOW_COUNTRIES=JP` in `deploy/start.sh`,
+  `api/auth/geo.ts`). Anywhere else the whole app answers `403`, so abroad it is used over Tailscale. The list
+  is `data/geo-allow.json`, refetched by the app when older than 7 days; a failed refetch keeps the old list.
+  It fails closed — no list means tailnet only — and depends on `TRUST_PROXY=1`, without which every client
+  looks like loopback and is admitted.
 - Start order is **sidecar, then app** — the app joins the sidecar's network namespace and
   cannot start before it exists. `make deploy-up` does both.
 - Recreating the sidecar destroys that namespace, so the app must be recreated too.

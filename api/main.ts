@@ -1,5 +1,6 @@
 import { init } from './server.ts';
 import { startSessionCleanup } from './auth/session.ts';
+import { startGeoRefresh } from './auth/geo.ts';
 import { dbPath } from './db/db.ts';
 import { getHousehold } from './db/households.ts';
 import logger from './logger.ts';
@@ -55,6 +56,7 @@ if (DEV && hasClient) {
 }
 
 startSessionCleanup();
+startGeoRefresh();
 
 if (!getHousehold()) {
   logger.warn('no household configured, login will fail until you run: make seed');

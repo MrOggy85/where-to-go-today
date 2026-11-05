@@ -21,6 +21,30 @@ export function resetLoginAttempts(ip: string) {
   attempts.delete(ip);
 }
 
+// Every request, not just logins. Generous enough for a photo grid loading at once, far below what a scanner sends.
+const REQUEST_WINDOW_MS = 60 * 1000;
+const MAX_REQUESTS = 600;
+const PRUNE_AT = 10_000;
+
+const requests = new Map<string, { count: number; resetAt: number }>();
+
+/** Per-IP request throttle. Expired buckets are swept only once the map grows, so a quiet day costs nothing. */
+export function requestAllowed(ip: string): boolean {
+  const now = Date.now();
+  if (requests.size > PRUNE_AT) {
+    for (const [key, entry] of requests) if (entry.resetAt <= now) requests.delete(key);
+  }
+
+  const entry = requests.get(ip);
+  if (!entry || entry.resetAt <= now) {
+    requests.set(ip, { count: 1, resetAt: now + REQUEST_WINDOW_MS });
+    return true;
+  }
+
+  entry.count++;
+  return entry.count <= MAX_REQUESTS;
+}
+
 /**
  * CSRF defence for state-changing requests. The app is same-origin by design, so any
  * write carrying a foreign Origin is rejected. A missing Origin (curl, older clients)

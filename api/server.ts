@@ -2,7 +2,8 @@ import { serveFile } from 'jsr:@std/http@1/file-server';
 import { fromFileUrl } from 'jsr:@std/path@1';
 import logger from './logger.ts';
 import { type Auth, resolveAuth } from './auth/session.ts';
-import { getClientIp, originAllowed } from './auth/guard.ts';
+import { getClientIp, originAllowed, requestAllowed } from './auth/guard.ts';
+import { geoAllowed } from './auth/geo.ts';
 import { errorResponse } from './db/validate.ts';
 import { getHealth } from './routes/health.ts';
 import { getMe, postLogin, postLogout, postProfile } from './routes/auth.ts';
@@ -143,12 +144,35 @@ function done(resp: Response, auth: Auth | null) {
   return { resp, profileId: auth?.profile?.id ?? null };
 }
 
+const REFUSAL_LOG_MS = 3_600_000;
+const refusalsLogged = new Map<string, number>();
+
+/** One line per IP and reason per hour, so a scan leaves a trace without flooding the log. */
+function logRefusal(reason: 'geo' | 'rate', ip: string, req: Request, path: string) {
+  const key = `${reason} ${ip}`;
+  const now = Date.now();
+  if ((refusalsLogged.get(key) ?? 0) > now) return;
+  if (refusalsLogged.size > 10_000) refusalsLogged.clear();
+  refusalsLogged.set(key, now + REFUSAL_LOG_MS);
+  logger.warn('refused', { reason, ip, method: req.method, path });
+}
+
 export function init(host: string, port: number) {
   return Deno.serve({ hostname: host, port }, async (req, info) => {
     const start = Date.now();
     const url = new URL(req.url);
     const requestId = crypto.randomUUID().slice(0, 8);
     const ip = getClientIp(req, info.remoteAddr.hostname);
+
+    // Before anything else, static files and the health check included: a refused client learns nothing.
+    if (!geoAllowed(ip)) {
+      logRefusal('geo', ip, req, url.pathname);
+      return new Response('403 Forbidden', { status: 403 });
+    }
+    if (!requestAllowed(ip)) {
+      logRefusal('rate', ip, req, url.pathname);
+      return new Response('429 Too Many Requests', { status: 429 });
+    }
 
     try {
       if (url.pathname.startsWith('/api')) {
@@ -162,6 +186,7 @@ export function init(host: string, port: number) {
           status: resp.status,
           durationMs: Date.now() - start,
           profileId,
+          ip,
         });
         return resp;
       }
@@ -175,6 +200,8 @@ export function init(host: string, port: number) {
         }
       }
 
+      // Page loads, not assets: few for the family, and where a probe for /wp-login.php or /.env shows up.
+      logger.info('page', { requestId, method: req.method, path: url.pathname, ip });
       try {
         return withCache(await serveFile(req, `${root}/index.html`), HTML_NO_CACHE);
       } catch {

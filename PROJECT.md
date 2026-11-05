@@ -727,6 +727,13 @@ Because the data describes family behavior and contains photos:
 - upload size and MIME type are validated
 - state-changing endpoints validate request origin
 - login endpoint is rate limited
+- every request is rate limited per IP (600 / minute, `api/auth/guard.ts`)
+- an optional country allowlist (`GEO_ALLOW_COUNTRIES`, `api/auth/geo.ts`) refuses every request from outside the
+  listed countries before routing, static files included. Tailnet and loopback addresses are always admitted. It is
+  built from APNIC's registry data plus Apple's iCloud Private Relay egress list, refreshed weekly by the app itself,
+  and fails closed: with no list loaded, only the tailnet gets in. Production sets `JP`
+- refused requests and every login, failed or not, are logged with the client IP, so an outside check can read who
+  tried
 - logs should avoid exact home coordinates and unnecessary personal data
 
 The app should support deletion of a place, visit, or photo without leaving obvious orphaned data.
@@ -1030,6 +1037,9 @@ Useful server logs:
 - duration
 - selected profile id
 - request id
+- client IP (the app is public; an IP is what an access review needs, and it is not household data)
+
+Page loads (not static assets) and refused requests are logged too, so a probe for `/wp-login.php` leaves a trace.
 
 Do not log:
 
@@ -1187,7 +1197,8 @@ The following questions remain intentionally open and should be answered from re
 15. Login is IP rate limited (10 attempts / 15 min, `api/auth/guard.ts`), which behind the
     Funnel sidecar depends on `TRUST_PROXY=1` to see real client IPs. Still open: whether a
     single shared household password on a publicly reachable login warrants a second factor
-    or temporary lockouts.
+    or temporary lockouts. **Narrowed 2026-11-05:** the login is now reachable only from Japan
+    (and the tailnet), and every request is rate limited — see section 17.
 
 ## 31. Confirmed defaults
 

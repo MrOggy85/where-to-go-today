@@ -42,6 +42,7 @@ docker run \
   -v "$PWD/data:/app/data" \
   -e TZ=Asia/Tokyo \
   -e TRUST_PROXY=1 \
+  -e GEO_ALLOW_COUNTRIES=JP \
   --restart=always \
   where-to-go-today:latest
 
@@ -50,6 +51,10 @@ docker run \
 # loopback, so without it the entire internet shares one 10-per-15-minute bucket and ten
 # bad guesses lock out the household. Safe only because the sidecar overwrites
 # X-Forwarded-For - never set it when the api is reachable directly.
+#
+# GEO_ALLOW_COUNTRIES refuses every client outside Japan, tailnet devices excepted
+# (api/auth/geo.ts). It also depends on TRUST_PROXY: without it every request looks like
+# loopback and is admitted. Abroad, the app answers 403 - use it over Tailscale then.
 
 echo_green "app up: https://${TS_HOSTNAME:-<host>}.${TS_TAILNET:-<tailnet>}"
 docker logs -f $CONTAINER_NAME
