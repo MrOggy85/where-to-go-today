@@ -1041,6 +1041,11 @@ Useful server logs:
 
 Page loads (not static assets) and refused requests are logged too, so a probe for `/wp-login.php` leaves a trace.
 
+Requests made with a session carry `sid`, the first 48 bits of a SHA-256 of the session token. It follows one session
+across requests and networks — a stolen cookie shows up as a known session on a new network — and cannot be turned
+back into a token. With `LOG_DIR` set, every line is also appended to `app-YYYY-MM-DD.jsonl` there and kept for 90
+days, because the container's own log does not survive a redeploy.
+
 Do not log:
 
 - session token

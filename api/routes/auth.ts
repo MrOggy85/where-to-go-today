@@ -5,6 +5,7 @@ import {
   destroySession,
   selectProfile,
   sessionCookie,
+  sessionTag,
   withCookie,
 } from '../auth/session.ts';
 import { loginAllowed, resetLoginAttempts } from '../auth/guard.ts';
@@ -50,7 +51,7 @@ export async function postLogin(req: Request, ip: string): Promise<Response> {
 
   // Fresh session id on every login: nothing carries over from a previous one.
   const sessionId = createSession(household.id);
-  logger.info('login succeeded', { ip });
+  logger.info('login succeeded', { ip, sid: await sessionTag(sessionId) });
 
   return withCookie(
     jsonResponse({ authenticated: true, household: { id: household.id }, profiles: listProfiles(household.id) }),

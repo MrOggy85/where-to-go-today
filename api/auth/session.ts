@@ -71,6 +71,22 @@ export function resolveAuth(req: Request): Auth | null {
   };
 }
 
+const tags = new Map<string, string>();
+
+/**
+ * A short one-way tag for a session, for the logs. Lets a reader follow one session across requests and IPs without
+ * the log ever holding the token: 48 bits of a SHA-256 of a 256-bit secret cannot be turned back into a cookie.
+ */
+export async function sessionTag(sessionId: string): Promise<string> {
+  const cached = tags.get(sessionId);
+  if (cached) return cached;
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(sessionId)));
+  const tag = Array.from(digest.slice(0, 6), (b) => b.toString(16).padStart(2, '0')).join('');
+  if (tags.size > 1000) tags.clear();
+  tags.set(sessionId, tag);
+  return tag;
+}
+
 export function sessionCookie(id: string) {
   const parts = [
     `${COOKIE_NAME}=${id}`,

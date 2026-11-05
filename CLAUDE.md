@@ -85,6 +85,12 @@ Internet -> Tailscale Funnel -> wtgt-tailscale  -> where-to-go-today
   to fit that, or the rule has to change on purpose. The app container is also read-only,
   capability-free, `no-new-privileges`, and bounded in processes and memory; only `data/` is
   writable.
+- **Logs are files too:** `LOG_DIR=/app/data/logs`, one `app-YYYY-MM-DD.jsonl` per UTC day, 90 days.
+  The home server's access watcher reads them every 2 minutes and alerts on outside logins, sessions
+  on new networks and password guessing, so keep the `message`, `ip` and `sid` fields stable — renaming
+  `login succeeded` silently blinds it. Never log the session token itself; `sid` is its one-way tag.
+- **Changing the password does not end sessions** (`seed.ts --force` rewrites only the hash). After a
+  suspected compromise, delete every `sessions` row as well as resetting the password.
 - Start order is **sidecar, then app** — the app joins the sidecar's network namespace and
   cannot start before it exists. `make deploy-up` does both.
 - Recreating the sidecar destroys that namespace, so the app must be recreated too.

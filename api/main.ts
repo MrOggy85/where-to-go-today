@@ -3,7 +3,9 @@ import { startSessionCleanup } from './auth/session.ts';
 import { startGeoRefresh } from './auth/geo.ts';
 import { dbPath } from './db/db.ts';
 import { getHousehold } from './db/households.ts';
-import logger from './logger.ts';
+import logger, { startLogFiles } from './logger.ts';
+
+startLogFiles();
 
 const DEV = Deno.env.get('DEV') === '1';
 const HOST = Deno.env.get('HOST') || '0.0.0.0';

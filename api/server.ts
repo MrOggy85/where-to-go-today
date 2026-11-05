@@ -1,7 +1,7 @@
 import { serveFile } from 'jsr:@std/http@1/file-server';
 import { fromFileUrl } from 'jsr:@std/path@1';
 import logger from './logger.ts';
-import { type Auth, resolveAuth } from './auth/session.ts';
+import { type Auth, resolveAuth, sessionTag } from './auth/session.ts';
 import { getClientIp, originAllowed, requestAllowed } from './auth/guard.ts';
 import { geoAllowed } from './auth/geo.ts';
 import { errorResponse } from './db/validate.ts';
@@ -54,7 +54,11 @@ function match(pathname: string, prefix: string, suffix = ''): string | null {
   return rest && !rest.includes('/') ? decodeURIComponent(rest) : null;
 }
 
-async function routeApi(req: Request, url: URL, ip: string): Promise<{ resp: Response; profileId: string | null }> {
+async function routeApi(
+  req: Request,
+  url: URL,
+  ip: string,
+): Promise<{ resp: Response; profileId: string | null; sessionId?: string }> {
   const path = url.pathname;
   const method = req.method;
 
@@ -141,7 +145,7 @@ function isTraversal(pathname: string) {
 }
 
 function done(resp: Response, auth: Auth | null) {
-  return { resp, profileId: auth?.profile?.id ?? null };
+  return { resp, profileId: auth?.profile?.id ?? null, sessionId: auth?.sessionId };
 }
 
 const REFUSAL_LOG_MS = 3_600_000;
@@ -176,10 +180,12 @@ export function init(host: string, port: number) {
 
     try {
       if (url.pathname.startsWith('/api')) {
-        const { resp, profileId } = await routeApi(req, url, ip);
+        const { resp, profileId, sessionId } = await routeApi(req, url, ip);
 
-        // Session cookies and note contents are deliberately absent from this line.
+        // Session cookies and note contents are deliberately absent from this line. `sid` is a one-way tag of the
+        // session, so a session used from an unfamiliar network can be spotted without logging the token.
         logger.info('request', {
+          sid: sessionId ? await sessionTag(sessionId) : null,
           requestId,
           method: req.method,
           path: url.pathname,
