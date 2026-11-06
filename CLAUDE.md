@@ -121,6 +121,22 @@ every other service on the same tailnet, so publishing it turns a private hostna
 probe list. Keep it out of docs, commit messages and issues — write
 `<app>.<tailnet>.ts.net` instead.
 
+### Resetting the password
+
+`deploy/seed.sh --password=... --force` rewrites the hash, and nothing else:
+
+- **Pass the real profile names**, `--profiles=<A>,<B>`. Without it seed adds two more
+  profiles named `Adult 1` and `Adult 2` next to the existing ones.
+- **Sessions survive it.** Every logged-in device stays logged in, including a stolen one.
+  After a suspected compromise, also delete every row in `sessions`.
+
+### Funnel and the client IP
+
+Measured 2026-11-05: Funnel puts the real client address in `X-Forwarded-For` and
+**replaces** any value the client sent, so `TRUST_PROXY=1` cannot be spoofed through it.
+Re-measure if the ingress ever changes: the throttles and the country filter all trust
+the first entry of that header.
+
 ### Node key expiry
 
 Generate auth keys **Reusable: ON, Ephemeral: OFF**, then set *Disable key expiry* on the
