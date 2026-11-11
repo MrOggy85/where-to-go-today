@@ -15,3 +15,5 @@ data/
 deploy/.env
 deploy/serve.json
 deploy/tailscale_state/
+# Image ID written by deploy/build.sh, run by deploy/start.sh.
+deploy/.image

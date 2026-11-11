@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Rootful daemon. The default context is rootless since 2026-10-26, so name it.
-export DOCKER_CONTEXT=default
+# Rootless daemon (since 2026-11-11). Named rather than trusted from the active context.
+export DOCKER_CONTEXT=rootless
 # Starts the api container. Requires the sidecar to be running first: this container
 # joins the sidecar's network namespace and cannot start without it.
 # Personal shell helpers if available; plain fallbacks otherwise so this runs anywhere.
@@ -29,6 +29,14 @@ fi
 
 mkdir -p data
 
+# The image is pinned by ID, written by build.sh: a public service never runs a tag
+# that a later build could move under it. Rebuild with ./build.sh to change it.
+if [[ ! -s .image ]]; then
+  echo_red "deploy/.image is missing - run ./build.sh first"
+  exit 1
+fi
+IMAGE=$(<.image)
+
 echo_yellow "stopping..."
 docker stop $CONTAINER_NAME 2>/dev/null || true
 docker rm -f $CONTAINER_NAME 2>/dev/null || true
@@ -37,7 +45,7 @@ echo_yellow "starting..."
 docker run \
   -d \
   --name $CONTAINER_NAME \
-  -u 1000 \
+  -u 1000:0 \
   --network=container:$SIDECAR_NAME \
   -v "$PWD/data:/app/data" \
   --read-only \
@@ -51,8 +59,13 @@ docker run \
   -e GEO_ALLOW_COUNTRIES=JP \
   -e LOG_DIR=/app/data/logs \
   --restart=always \
-  where-to-go-today:latest
+  "$IMAGE"
 
+# -u 1000:0, rootless since 2026-11-11: uid 1000 is host uid 100999, and gid 0 is the
+# one container gid that maps to host oskar. So data/ is 100999:oskar, dirs 2775, and
+# oskar's own readers (wtgt-watch.py, service-monitor.sh) still read the logs. uid 1000
+# is also what egress-firewall.sh confines; do not change it without changing that.
+#
 # Blast radius, if the app is ever taken over: the only writable path is data/ (its own
 # database and photos); no capabilities, no setuid escalation, a read-only image, and
 # bounded processes and memory. Its network is confined by the sidecar's

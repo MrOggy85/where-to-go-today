@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Rootful daemon. The default context is rootless since 2026-10-26, so name it.
-export DOCKER_CONTEXT=default
+# Rootless daemon (since 2026-11-11). Named rather than trusted from the active context.
+export DOCKER_CONTEXT=rootless
 # Tailscale sidecar. Owns the public hostname, terminates TLS and proxies to the api
 # over the network namespace it shares with the app container.
 #
@@ -53,13 +53,15 @@ docker run \
   -d \
   --name $CONTAINER_NAME \
   -v "$PWD/tailscale_state:/var/lib/tailscale" \
-  -v /dev/net/tun:/dev/net/tun \
+  --device /dev/net/tun \
   -v "$PWD/serve.json:/config/serve.json:ro" \
   -v "$PWD/egress-firewall.sh:/config/egress-firewall.sh:ro" \
   --entrypoint /bin/sh \
   --dns 8.8.8.8 \
   --network=bridge \
+  --cap-drop ALL \
   --cap-add=NET_ADMIN \
+  --cap-add=NET_RAW \
   --cap-add=NET_BIND_SERVICE \
   --security-opt no-new-privileges \
   -e TS_AUTHKEY="$TS_AUTHKEY" \
@@ -79,13 +81,12 @@ docker run \
 # SYS_MODULE was dropped 2026-11-05: root in a container that may load kernel modules is
 # root on the host, and the tun module the image would load is already loaded.
 
-# tailscaled runs as root inside the container (kernel mode needs iptables), so
-# everything it writes to tailscale_state/ lands root-owned. Nothing there is committed
-# in this repo, but root-owned files still break `git status` and plain-user backups.
-echo_yellow "waiting for state, then fixing ownership..."
-sleep 10
-docker exec $CONTAINER_NAME chown -R 1000:1000 /var/lib/tailscale \
-  && echo_green "tailscale_state/ owned by uid 1000" \
-  || echo_red "chown failed - state will stay root-owned"
+# Rootless since 2026-11-11: container root is oskar on the host, so everything
+# tailscaled writes to tailscale_state/ lands oskar-owned by itself. The chown step
+# (and chown-state.sh) that the rootful daemon needed is gone.
+#
+# Capabilities: ALL dropped, then NET_ADMIN (tun device, routes, the egress rules),
+# NET_RAW (iptables and tailscaled's raw sockets) and NET_BIND_SERVICE (:443).
+# Without CHOWN/DAC_OVERRIDE, container root can only touch files oskar owns.
 
 echo_green "sidecar up for $PUBLIC_HOSTNAME. next: ./start.sh"

@@ -47,4 +47,4 @@ deploy-up:
 	./deploy/sidecar.sh && ./deploy/start.sh
 
 deploy-logs:
-	docker -c default logs -f where-to-go-today
+	docker -c rootless logs -f where-to-go-today
