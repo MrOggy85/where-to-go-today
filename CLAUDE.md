@@ -64,7 +64,8 @@ make dev   # then exercise the loop over http://localhost:8777
 
 ## Deployment
 
-Production runs on the home server as two Docker containers, public over
+Production runs on the home server as two Docker containers on the **rootless** daemon
+(since 2026-11-11; every deploy script sets `DOCKER_CONTEXT=rootless`), public over
 Tailscale Funnel. `deploy/` holds the scripts; `PROJECT.md` section 21 is the contract.
 
 ```txt
@@ -94,6 +95,17 @@ Internet -> Tailscale Funnel -> wtgt-tailscale  -> where-to-go-today
 - Start order is **sidecar, then app** — the app joins the sidecar's network namespace and
   cannot start before it exists. `make deploy-up` does both.
 - Recreating the sidecar destroys that namespace, so the app must be recreated too.
+- **Rootless, and what that changes** (2026-11-11). Kernel-mode Tailscale (`TS_USERSPACE=false`)
+  and the egress firewall both work unchanged: the sidecar gets `--device /dev/net/tun` and
+  drops every capability but `NET_ADMIN`, `NET_RAW` and `NET_BIND_SERVICE`. Its root is the
+  host user, so `tailscale_state/` stays user-owned without a chown. The app runs as
+  `-u 1000:0`: uid 1000 is still what the firewall confines, and gid 0 is the one container
+  gid that maps to the host user, so `deploy/data/` is `<subuid>:<user>`, dirs 2775, and the
+  host's log readers still read it. Fix ownership through a container as root
+  (`chown -R 1000:0`), never on the host.
+- **The image is pinned by ID.** `deploy/build.sh` tags `where-to-go-today:<commit>` and writes
+  the image ID to `deploy/.image` (untracked); `deploy/start.sh` runs that ID and refuses
+  without it. No `:latest` — this is the one public service.
 - The api listens on `127.0.0.1` only. It is never published to a host port; the sidecar
   is the only way in.
 - `TRUST_PROXY=1` is required in production and set in `deploy/start.sh`. Behind the
