@@ -5,7 +5,7 @@ The same app as the Deno server, run as a Cloudflare Worker: **D1** for the data
 No home server in the request path.
 
 ```txt
-Internet -> Cloudflare edge (TLS) -> Worker (country filter, throttle, api/app.ts)
+Internet -> Cloudflare edge (TLS, the zone's wildcard certificate) -> Worker (throttle, api/app.ts)
                                        -> D1  (households ... photos, login_attempts, log_lines)
                                        -> R2  (photos/<uuid>.jpg, private bucket)
                                        -> static assets (api/client)
@@ -42,12 +42,18 @@ stay out of git: this is a public repo.
 1. API token (dashboard → My Profile → API Tokens): start from *Edit Cloudflare Workers*,
    add **D1: Edit**, limit it to the one account and the one zone. Save it as
    `CLOUDFLARE_API_TOKEN=…` in the file `TOKEN_FILE` names (0600, outside the repo).
-2. `cp .env.example .env`, fill in `CF_ACCOUNT_ID` and `HOSTNAME`.
-3. `./wr d1 create where-to-go-today --location apac`, put the id in `.env` as `D1_ID`.
-4. `./wr r2 bucket create where-to-go-today-photos --location apac`. Leave public access off.
-5. `./wr secret put OPS_TOKEN`: a long random string, also given to the home server's watcher.
-6. `./migrate-data.sh --remote`, then `./set-password.sh --remote`.
-7. `./deploy.sh`.
+2. `cp .env.example .env`, fill in `CF_ACCOUNT_ID`, `HOSTNAME` and `ZONE_NAME`.
+   The hostname is **one level below the zone** (`<name>.<zone>`), so the zone's
+   Universal SSL wildcard covers it.
+3. DNS → add `AAAA <name> 100::`, **Proxied**. That record is only there so the edge
+   answers for the name; the Route in `wrangler.jsonc` sends its requests to the Worker.
+   Not a Custom Domain: that issues a certificate for the one hostname, which publishes
+   it in Certificate Transparency.
+4. `./wr d1 create where-to-go-today --location apac`, put the id in `.env` as `D1_ID`.
+5. `./wr r2 bucket create where-to-go-today-photos --location apac`. Leave public access off.
+6. `./wr secret put OPS_TOKEN`: a long random string, also given to the home server's watcher.
+7. `./migrate-data.sh --remote`, then `./set-password.sh --remote`.
+8. `./deploy.sh`.
 
 ## Things that differ from the Deno server, and why
 
@@ -55,15 +61,20 @@ stay out of git: this is a public repo.
   100,000 (workerd issue 1346; the local `wrangler dev` runtime does not enforce it, so a
   local test passes where production would not). A hash carries its own count, so the
   Deno server still verifies the old ones; on a Worker the old hash fails with
-  `password check failed, reset the password to rehash it` in the log. One check costs
-  about 20 ms of CPU (measured on the home server). **The Workers Free plan allows 10 ms
-  per request**, so logins need the Paid plan or fewer iterations.
-- **Country filter: Cloudflare's `request.cf.country`**, not the APNIC + iCloud Private
-  Relay list. Same variable, `GEO_ALLOW_COUNTRIES=JP`, same place in the code (before
-  anything, static files included), same fail-closed rule (no country, no entry). There
-  is **no tailnet exception**: abroad, add the country to `vars` in the template and
-  redeploy, or the whole app answers 403. Check on the iPhone with iCloud Private Relay
-  on that it still gets in.
+  `password check failed, reset the password to rehash it` in the log. The hashing is
+  native WebCrypto (`crypto.subtle.deriveBits`), not a JS library. One check costs about
+  20 ms of CPU on the home server's N100; Cloudflare's CPUs are faster, and **the Free
+  plan allows 10 ms per request**. After the first deploy, read the login requests' CPU
+  time in the dashboard (Workers → where-to-go-today → Observability, `$workers.cpuTimeMs`)
+  or `./wr tail`. If logins fail with error 1102 or sit near the limit, lower
+  `PBKDF2_ITERATIONS` in the template, redeploy, and run `./set-password.sh --remote`:
+  existing hashes keep their own count until rehashed.
+- **No country filter by default** (`GEO_ALLOW_COUNTRIES` empty, chosen 2026-11-16): on
+  Cloudflare there is no tailnet way in, so the filter would lock the family out abroad.
+  The password, the login throttle and the access watcher (which alerts on every login)
+  are the fence. Setting it (`JP`, `JP,SE`) turns on the same check as before, with
+  Cloudflare's `request.cf.country` in place of the APNIC + iCloud Private Relay list,
+  still before anything (static files included) and still failing closed.
 - **Request throttle: the Rate Limiting binding**, 600 a minute per address. It counts
   per Cloudflare location and approximately, which is fine for a ceiling against
   scanners. **The login throttle is strict** and counts in D1 (`login_attempts`), one

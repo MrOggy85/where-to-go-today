@@ -8,11 +8,15 @@
   "compatibility_date": "2026-11-01",
   "account_id": "__CF_ACCOUNT_ID__",
 
-  // The one way in: a Custom Domain on the zone. No workers.dev address and no preview
-  // URLs, so nothing reaches the Worker by a name the country filter was not tested on.
+  // The one way in: a Route on the zone, not a Custom Domain. A Custom Domain gets its
+  // own certificate, which publishes the hostname in Certificate Transparency; a Route
+  // on a proxied record is served under the zone's wildcard certificate and names
+  // nothing (decisions/2026-11-04-pages-on-home-okuno-se.md in the ops repo: privacy by
+  // not publishing). The proxied record (AAAA 100::) is made once by hand; see README.
+  // No workers.dev address and no preview URLs, so this is the only door.
   "workers_dev": false,
   "preview_urls": false,
-  "routes": [{ "pattern": "__HOSTNAME__", "custom_domain": true }],
+  "routes": [{ "pattern": "__HOSTNAME__/*", "zone_name": "__ZONE__" }],
 
   // The client bundle (make build -> api/client). run_worker_first: the Worker sees every
   // request, so the country filter and throttle run before any file is served, and the
@@ -41,7 +45,11 @@
     { "name": "REQUESTS", "namespace_id": "1001", "simple": { "limit": 600, "period": 60 } }
   ],
 
-  "vars": { "GEO_ALLOW_COUNTRIES": "JP" },
+  // GEO_ALLOW_COUNTRIES: empty admits every country (chosen 2026-11-16, so it works
+  // abroad without a step); `JP` or `JP,SE` turns the filter on, before anything else.
+  // PBKDF2_ITERATIONS: for new password hashes, at most 100000 on Workers. Lower it only
+  // if logins exceed the Free plan's CPU limit (Observability -> CPU time).
+  "vars": { "GEO_ALLOW_COUNTRIES": "", "PBKDF2_ITERATIONS": "100000" },
   // OPS_TOKEN is a secret: ./wr secret put OPS_TOKEN
 
   // 03:17 JST: expired sessions, stale login counters, log lines past 90 days.

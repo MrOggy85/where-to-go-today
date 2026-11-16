@@ -26,6 +26,8 @@ export interface Env {
   GEO_ALLOW_COUNTRIES?: string;
   /** Secret. Bearer token for `GET /api/ops/log`, the home server's access watcher. Unset disables it. */
   OPS_TOKEN?: string;
+  /** For new password hashes. 100,000 at most: Workers refuses more. */
+  PBKDF2_ITERATIONS?: string;
 }
 
 let ready = false;
@@ -33,7 +35,8 @@ let ready = false;
 /** Plugs the Worker's storage into the shared code, once per isolate. Bindings do not change between requests. */
 function setup(env: Env) {
   if (ready) return;
-  configure({ dev: false });
+  const iterations = Number(env.PBKDF2_ITERATIONS);
+  configure({ dev: false, pbkdf2Iterations: iterations > 0 && iterations <= 100_000 ? iterations : 100_000 });
   useDriver(d1Driver(env.DB));
   usePhotoStore(r2PhotoStore(env.PHOTOS));
   useLoginLimiter(d1LoginLimiter(env.DB));

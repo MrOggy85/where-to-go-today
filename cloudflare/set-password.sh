@@ -1,7 +1,8 @@
 #!/bin/bash
 # Sets the household password in D1, asking for it twice without echo. Nothing is
-# generated: the password is yours. It is hashed inside the tooling image (PBKDF2, the
-# Worker's 100,000 iterations) and only the hash is written to D1.
+# generated: the password is yours. It is hashed inside the tooling image with native
+# WebCrypto PBKDF2, at PBKDF2_ITERATIONS from wrangler.jsonc (100,000 unless lowered),
+# and only the hash is written to D1.
 #
 #   ./set-password.sh --remote                      production D1
 #   ./set-password.sh --local                       wrangler dev's local D1
@@ -41,13 +42,17 @@ read -rsp 'Again: ' pw2; echo
 [[ "$pw1" == "$pw2" ]] || { echo "they differ, nothing changed" >&2; exit 1; }
 [[ ${#pw1} -ge 8 ]] || { echo "shorter than 8 characters, nothing changed" >&2; exit 1; }
 
+iterations=$(sed -n 's/.*"PBKDF2_ITERATIONS": "\([0-9]*\)".*/\1/p' wrangler.template.jsonc)
+iterations=${iterations:-100000}
 hash=$(printf '%s' "$pw1" | WR_STDIN=1 ./wr exec deno eval --quiet "
   import { hashPassword } from '/work/api/auth/password.ts';
+  import { configure } from '/work/api/config.ts';
+  configure({ pbkdf2Iterations: Number('$iterations') });
   const pw = await new Response(Deno.stdin.readable).text();
   console.log(await hashPassword(pw));
 ")
 unset pw1 pw2
-[[ "$hash" == pbkdf2\$100000\$* ]] || { echo "hashing failed, nothing changed" >&2; exit 1; }
+[[ "$hash" == "pbkdf2\$$iterations\$"* ]] || { echo "hashing failed, nothing changed" >&2; exit 1; }
 
 # The SQL goes through a file, so the hash never appears in a process list. export/ is
 # gitignored; the file is 0600 and removed on exit.

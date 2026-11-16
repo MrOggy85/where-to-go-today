@@ -30,6 +30,7 @@ fi
 # ---- config -------------------------------------------------------------------------
 CF_ACCOUNT_ID=""
 HOSTNAME_PUBLIC="localhost"
+ZONE_NAME="localhost"
 D1_NAME="where-to-go-today"
 D1_ID="00000000-0000-0000-0000-000000000000"
 R2_BUCKET="where-to-go-today-photos"
@@ -49,6 +50,7 @@ render() {
   sed -e "/$drop/d" \
       -e "s|__CF_ACCOUNT_ID__|$CF_ACCOUNT_ID|" \
       -e "s|__HOSTNAME__|$HOSTNAME_PUBLIC|" \
+      -e "s|__ZONE__|$ZONE_NAME|" \
       -e "s|__D1_NAME__|$D1_NAME|" \
       -e "s|__D1_ID__|$D1_ID|" \
       -e "s|__R2_BUCKET__|$R2_BUCKET|" \
