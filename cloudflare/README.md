@@ -29,6 +29,7 @@ Nothing is installed on the host.
 | `./deploy.sh` | bundle, check, migrations, deploy, health check |
 | `./migrate-data.sh --local\|--remote` | copy `deploy/data` (SQLite + photos) into D1/R2 |
 | `./set-password.sh --local\|--remote` | set the household password (asked twice, no echo) |
+| `./set-token.sh` | store the Cloudflare API token (no echo, checked, 0600 outside the repo) |
 
 `wrangler.jsonc` is **generated** from `wrangler.template.jsonc` and `.env` on every `./wr`
 run. Edit the template. `.env` (account id, D1 id, bucket, hostname) and the API token
@@ -39,9 +40,7 @@ stay out of git: this is a public repo.
 
 ## First deployment
 
-1. API token (dashboard → My Profile → API Tokens): start from *Edit Cloudflare Workers*,
-   add **D1: Edit**, limit it to the one account and the one zone. Save it as
-   `CLOUDFLARE_API_TOKEN=…` in the file `TOKEN_FILE` names (0600, outside the repo).
+1. API token (see *API token* below), stored with `./set-token.sh`.
 2. `cp .env.example .env`, fill in `CF_ACCOUNT_ID`, `HOSTNAME` and `ZONE_NAME`.
    The hostname is **one level below the zone** (`<name>.<zone>`), so the zone's
    Universal SSL wildcard covers it.
@@ -54,6 +53,25 @@ stay out of git: this is a public repo.
 6. `./wr secret put OPS_TOKEN`: a long random string, also given to the home server's watcher.
 7. `./migrate-data.sh --remote`, then `./set-password.sh --remote`.
 8. `./deploy.sh`.
+
+## API token
+
+Dashboard → My Profile → API Tokens → Create Token → *Custom token*:
+
+| Scope | Permission | For |
+|---|---|---|
+| Account | Workers Scripts: Edit | deploy, `secret put` |
+| Account | D1: Edit | create the database, migrations, import, `set-password.sh` |
+| Account | Workers R2 Storage: Edit | create the bucket, upload photos |
+| Account | Workers Tail: Read | `./wr tail`: watch live requests after a deploy |
+| Account | Account Settings: Read | wrangler reads the account it deploys to |
+| Zone | Workers Routes: Edit | the Route on the hostname |
+| Zone | Zone: Read | wrangler turns `zone_name` into the zone id |
+
+*Account resources*: only this account. *Zone resources*: only the one zone.
+**No DNS permission**: whoever can edit the zone's records can redirect its mail, so the
+one proxied record per app is added by hand in the dashboard. Stored by `./set-token.sh`
+(no echo, checked against Cloudflare, 0600 outside the repo).
 
 ## Things that differ from the Deno server, and why
 
