@@ -40,38 +40,42 @@ stay out of git: this is a public repo.
 
 ## First deployment
 
-1. API token (see *API token* below), stored with `./set-token.sh`.
-2. `cp .env.example .env`, fill in `CF_ACCOUNT_ID`, `HOSTNAME` and `ZONE_NAME`.
+1. **Dashboard, once** (so the token never needs to create or delete anything):
+   - Workers & Pages → Create → a Hello World Worker named **`where-to-go-today`**. The
+     first `./deploy.sh` replaces it and turns its `workers.dev` address off.
+   - Storage & Databases → D1 → Create **`where-to-go-today`**, location Asia-Pacific.
+     Its id goes in `.env` as `D1_ID`.
+   - R2 → Create bucket **`where-to-go-today-photos`**, Asia-Pacific. Public access off.
+   - DNS → `AAAA <name> 100::`, **Proxied**. Only there so the edge answers for the name;
+     the Route in `wrangler.jsonc` sends its requests to the Worker. Not a Custom Domain:
+     that issues a certificate for the one hostname, which publishes it in CT.
+2. `cp .env.example .env`, fill in `CF_ACCOUNT_ID`, `HOSTNAME`, `ZONE_NAME`, `D1_ID`.
    The hostname is **one level below the zone** (`<name>.<zone>`), so the zone's
    Universal SSL wildcard covers it.
-3. DNS → add `AAAA <name> 100::`, **Proxied**. That record is only there so the edge
-   answers for the name; the Route in `wrangler.jsonc` sends its requests to the Worker.
-   Not a Custom Domain: that issues a certificate for the one hostname, which publishes
-   it in Certificate Transparency.
-4. `./wr d1 create where-to-go-today --location apac`, put the id in `.env` as `D1_ID`.
-5. `./wr r2 bucket create where-to-go-today-photos --location apac`. Leave public access off.
-6. `./wr secret put OPS_TOKEN`: a long random string, also given to the home server's watcher.
-7. `./migrate-data.sh --remote`, then `./set-password.sh --remote`.
-8. `./deploy.sh`.
+3. API token (below), stored with `./set-token.sh`.
+4. `./wr secret put OPS_TOKEN`: a long random string, also given to the home server's watcher.
+5. `./migrate-data.sh --remote`, then `./set-password.sh --remote`.
+6. `./deploy.sh`.
 
 ## API token
 
-Dashboard → My Profile → API Tokens → Create Token → *Custom token*:
+An **account-owned** token (Manage Account → Account API Tokens → Create): wrangler's
+`wrangler login` does not support the per-Worker roles Cloudflare introduced in
+2026-09, and the old *Workers Scripts* permissions are marked Legacy. Policies:
 
-| Scope | Permission | For |
-|---|---|---|
-| Account | Workers Scripts: Edit | deploy, `secret put` |
-| Account | D1: Edit | create the database, migrations, import, `set-password.sh` |
-| Account | Workers R2 Storage: Edit | create the bucket, upload photos |
-| Account | Workers Tail: Read | `./wr tail`: watch live requests after a deploy |
-| Account | Account Settings: Read | wrangler reads the account it deploys to |
-| Zone | Workers Routes: Edit | the Route on the hostname |
-| Zone | Zone: Read | wrangler turns `zone_name` into the zone id |
+| Product / zone | Role or permission | Scope | For |
+|---|---|---|---|
+| Workers | **Editor** | the Worker `where-to-go-today` | deploy, `secret put`, `./wr tail`, logs and CPU time (Editor includes Metadata Read-only) |
+| D1 | **Editor** (or *D1: Edit* if that row is still the old kind) | the database `where-to-go-today` | migrations, the import, `set-password.sh` |
+| Workers R2 Storage | **Edit** | the account | upload the photos (`migrate-data.sh`) |
+| Zone `okuno.se` | **Workers Routes: Edit** | that zone only | the Route on the hostname |
+| Zone `okuno.se` | **Zone: Read** | that zone only | wrangler turns `zone_name` into the zone id |
 
-*Account resources*: only this account. *Zone resources*: only the one zone.
-**No DNS permission**: whoever can edit the zone's records can redirect its mail, so the
-one proxied record per app is added by hand in the dashboard. Stored by `./set-token.sh`
-(no echo, checked against Cloudflare, 0600 outside the repo).
+No Admin: Editor cannot create or delete, which is why the Worker, database and bucket
+are made in the dashboard first. If scoping to the one Worker is refused (there are
+reports of that), scope Workers Editor to all Workers instead. **No DNS permission**:
+whoever can edit the zone's records can redirect its mail, so each app's one proxied
+record is added by hand. Roles: developers.cloudflare.com/workers/authorization/.
 
 ## Things that differ from the Deno server, and why
 
