@@ -1,13 +1,13 @@
 # Cloudflare Workers deployment
 
-The same app as the Deno server, run as a Cloudflare Worker: **D1** for the database,
-**R2** for photo bytes, the client bundle as **Workers static assets**, on a Custom Domain.
+The same app as the Deno server, run as a Cloudflare Worker: **D1** for the database
+and the photo bytes, the client bundle as **Workers static assets**, on a Route under the
+zone's wildcard certificate.
 No home server in the request path.
 
 ```txt
 Internet -> Cloudflare edge (TLS, the zone's wildcard certificate) -> Worker (throttle, api/app.ts)
-                                       -> D1  (households ... photos, login_attempts, log_lines)
-                                       -> R2  (photos/<uuid>.jpg, private bucket)
+                                       -> D1  (households ... photos, photo_bytes, login_attempts, log_lines)
                                        -> static assets (api/client)
 ```
 
@@ -24,10 +24,10 @@ Nothing is installed on the host.
 |---|---|
 | `./wr check` | type-check the Worker and the shared code it bundles |
 | `./wr build-client` | build `api/client` |
-| `./wr dev` | the Worker on `http://127.0.0.1:8787` with local D1/R2 under `.wrangler/state` |
+| `./wr dev` | the Worker on `http://127.0.0.1:8787` with a local D1 under `.wrangler/state` |
 | `./wr <wrangler args>` | wrangler itself, e.g. `./wr d1 execute DB --remote --command '…'` |
 | `./deploy.sh` | bundle, check, migrations, deploy, health check |
-| `./migrate-data.sh --local\|--remote` | copy `deploy/data` (SQLite + photos) into D1/R2 |
+| `./migrate-data.sh --local\|--remote` | copy `deploy/data` (SQLite + photos) into D1 |
 | `./set-password.sh --local\|--remote` | set the household password (asked twice, no echo) |
 | `./set-token.sh` | store the Cloudflare API token (no echo, checked, 0600 outside the repo) |
 
@@ -45,7 +45,6 @@ stay out of git: this is a public repo.
      first `./deploy.sh` replaces it and turns its `workers.dev` address off.
    - Storage & Databases → D1 → Create **`where-to-go-today`**, location Asia-Pacific.
      Its id goes in `.env` as `D1_ID`.
-   - R2 → Create bucket **`where-to-go-today-photos`**, Asia-Pacific. Public access off.
    - DNS → `AAAA <name> 100::`, **Proxied**. Only there so the edge answers for the name;
      the Route in `wrangler.jsonc` sends its requests to the Worker. Not a Custom Domain:
      that issues a certificate for the one hostname, which publishes it in CT.
@@ -67,12 +66,11 @@ An **account-owned** token (Manage Account → Account API Tokens → Create): w
 |---|---|---|---|
 | Workers | **Editor** | the Worker `where-to-go-today` | deploy, `secret put`, `./wr tail`, logs and CPU time (Editor includes Metadata Read-only) |
 | D1 | **Editor** (or *D1: Edit* if that row is still the old kind) | the database `where-to-go-today` | migrations, the import, `set-password.sh` |
-| Workers R2 Storage | **Edit** | the account | upload the photos (`migrate-data.sh`) |
 | Zone `okuno.se` | **Workers Routes: Edit** | that zone only | the Route on the hostname |
 | Zone `okuno.se` | **Zone: Read** | that zone only | wrangler turns `zone_name` into the zone id |
 
-No Admin: Editor cannot create or delete, which is why the Worker, database and bucket
-are made in the dashboard first. If scoping to the one Worker is refused (there are
+No Admin: Editor cannot create or delete, which is why the Worker and the database are
+made in the dashboard first. No R2: photos live in D1 (below). If scoping to the one Worker is refused (there are
 reports of that), scope Workers Editor to all Workers instead. **No DNS permission**:
 whoever can edit the zone's records can redirect its mail, so each app's one proxied
 record is added by hand. Roles: developers.cloudflare.com/workers/authorization/.
@@ -97,6 +95,15 @@ record is added by hand. Roles: developers.cloudflare.com/workers/authorization/
   are the fence. Setting it (`JP`, `JP,SE`) turns on the same check as before, with
   Cloudflare's `request.cf.country` in place of the APNIC + iCloud Private Relay list,
   still before anything (static files included) and still failing closed.
+- **Photos live in D1, not on disk** (`photo_bytes`, `src/d1photos.ts`; decided
+  2026-11-16 over R2). The app shrinks each photo to 1600 px JPEG before upload
+  (0.5–0.9 MB) and D1 stores at most 2 MB per value, so the Worker caps one photo at
+  1.9 MB (the Deno server allows 6 MB). It needs no second service, and D1 Time Travel
+  (7 days on Free) restores photos with everything else, which R2 could not. Free D1
+  holds 500 MB per database: roughly 600 photos. `migrate-data.sh` cannot put them in
+  its SQL file (D1 caps one statement at about 100 KB), so it PUTs each to
+  `/api/ops/photo` with `OPS_TOKEN`, which stores only bytes for a `photos` row that
+  already exists.
 - **Request throttle: the Rate Limiting binding**, 600 a minute per address. It counts
   per Cloudflare location and approximately, which is fine for a ceiling against
   scanners. **The login throttle is strict** and counts in D1 (`login_attempts`), one

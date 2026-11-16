@@ -1,8 +1,13 @@
 #!/bin/bash
-# Copies the household's data from the Deno server's volume (deploy/data) into D1 and R2.
+# Copies the household's data from the Deno server's volume (deploy/data) into D1.
 #
-#   ./migrate-data.sh --local     into wrangler dev's local D1/R2, to rehearse
-#   ./migrate-data.sh --remote    into production. Refuses if D1 already holds a household.
+#   ./migrate-data.sh --local     into wrangler dev's local D1, to rehearse (./wr dev running)
+#   ./migrate-data.sh --remote    into production (Worker deployed). Refuses if D1 already
+#                                 holds a household.
+#
+# Rows go in as one SQL file. Photos cannot: D1 caps one SQL statement at about 100 KB and
+# a photo is 0.5-0.9 MB, so each is PUT to the Worker's /api/ops/photo with OPS_TOKEN and
+# stored by the app's own photo store.
 #
 # Read-only on the source: the database is copied with SQLite's backup API (never a file
 # copy: it runs with a WAL), the photos through a throwaway container, because they are
@@ -18,11 +23,19 @@ REPO=$(dirname "$HERE")
 cd "$HERE"
 
 where="${1:-}"
-[[ "$where" == --local || "$where" == --remote ]] || { sed -n '2,13p' "$0"; exit 1; }
+[[ "$where" == --local || "$where" == --remote ]] || { sed -n '2,10p' "$0"; exit 1; }
 
 DATA=${WTGT_DATA:-$REPO/deploy/data}
-R2_BUCKET=where-to-go-today-photos
 [[ -f .env ]] && . ./.env
+if [[ "$where" == --local ]]; then
+  BASE=http://127.0.0.1:8787
+  OPS_TOKEN=$(sed -n 's/^OPS_TOKEN=//p' .dev.vars 2>/dev/null)
+else
+  BASE="https://$HOSTNAME"
+  OPS_TOKEN=$(cat "$HOME/.config/where-to-go-today/ops-token" 2>/dev/null)
+fi
+[[ -n "${OPS_TOKEN:-}" ]] || { echo "no OPS_TOKEN (.dev.vars locally, ~/.config/where-to-go-today/ops-token remotely)" >&2; exit 1; }
+curl -fsS --max-time 10 "$BASE/api/health" >/dev/null || { echo "the Worker does not answer at $BASE" >&2; exit 1; }
 
 [[ -f "$DATA/app.sqlite3" ]] || { echo "no database at $DATA/app.sqlite3" >&2; exit 1; }
 
@@ -65,32 +78,31 @@ fi
 ./wr d1 migrations apply DB "$where" </dev/null
 ./wr d1 execute DB "$where" --file export/data.sql </dev/null >/dev/null
 
-echo "5/5 photos into R2 bucket $R2_BUCKET ($where)"
-# One container for all of them rather than one per file.
-./wr exec sh -c '
-  set -e
-  where=$1; bucket=$2
-  for f in export/photos/*; do
-    [ -f "$f" ] || continue
-    name=$(basename "$f")
-    case "$name" in
-      *.jpg) type=image/jpeg ;; *.png) type=image/png ;; *.webp) type=image/webp ;; *) type=application/octet-stream ;;
-    esac
-    wrangler r2 object put "$bucket/photos/$name" --file "$f" --content-type "$type" "$where" >/dev/null
-    echo "    $name"
-  done
-' sh "$where" "$R2_BUCKET" </dev/null
+echo "5/5 photos into D1 through $BASE/api/ops/photo"
+for f in export/photos/*; do
+  [[ -f "$f" ]] || continue
+  name=$(basename "$f")
+  case "$name" in
+    *.jpg) type=image/jpeg ;; *.png) type=image/png ;; *.webp) type=image/webp ;; *) type=application/octet-stream ;;
+  esac
+  # The token goes to curl on stdin, never on the command line.
+  printf 'header = "Authorization: Bearer %s"\n' "$OPS_TOKEN" |
+    curl -fsS --max-time 60 -K - -X PUT -H "content-type: $type" --data-binary "@$f" \
+      "$BASE/api/ops/photo?name=$name" >/dev/null
+  echo "    $name"
+done
 
 echo "check: rows in D1"
 ./wr d1 execute DB "$where" --json --command "
   SELECT (SELECT COUNT(*) FROM households) households, (SELECT COUNT(*) FROM profiles) profiles,
          (SELECT COUNT(*) FROM categories) categories, (SELECT COUNT(*) FROM places) places,
          (SELECT COUNT(*) FROM place_categories) place_categories, (SELECT COUNT(*) FROM visits) visits,
-         (SELECT COUNT(*) FROM photos) photos" </dev/null |
+         (SELECT COUNT(*) FROM photos) photos, (SELECT COUNT(*) FROM photo_bytes) photo_bytes" </dev/null |
   python3 -c '
 import json, sys
 got = json.load(sys.stdin)[0]["results"][0]
 want = json.loads(sys.argv[1])
+want["photo_bytes"] = want["photos"]
 bad = {k: (want[k], got[k]) for k in want if want[k] != got[k]}
 print("    D1:", got)
 if bad:

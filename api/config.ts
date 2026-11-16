@@ -8,11 +8,14 @@ export interface Config {
   dev: boolean;
   /** PBKDF2 iterations for new password hashes. Workers refuses more than 100,000. */
   pbkdf2Iterations: number;
+  /** Largest single photo accepted. The Worker keeps photos in D1, which stores at most 2 MB per value. */
+  maxPhotoBytes: number;
 }
 
 export const config: Config = {
   dev: false,
   pbkdf2Iterations: 100_000,
+  maxPhotoBytes: 6 * 1024 * 1024,
 };
 
 export function configure(c: Partial<Config>) {

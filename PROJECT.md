@@ -921,7 +921,7 @@ Deno Deploy remains a possible future deployment alternative, but it is not the 
 server out of the public request path. It keeps this rule rather than breaking it: the
 database, photo storage and log sink sit behind small interfaces (`api/db/db.ts`,
 `api/photos/storage.ts`, `api/logger.ts`), with SQLite + disk adapters for Deno and
-D1 + R2 adapters for the Worker, sharing one handler (`api/app.ts`). The requirements above
+D1 adapters for the Worker (photo bytes included), sharing one handler (`api/app.ts`). The requirements above
 hold on both; `cloudflare/README.md` lists how each is met there.
 
 ## 22. API sketch

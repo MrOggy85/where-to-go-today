@@ -3,7 +3,7 @@
 #
 #   ./wr check                 type-check the Worker and the shared api it bundles
 #   ./wr build-client          build the client bundle into api/client (npm ci + build.ts)
-#   ./wr dev                   the Worker locally on http://127.0.0.1:8787, local D1 and R2
+#   ./wr dev                   the Worker locally on http://127.0.0.1:8787, local D1
 #   ./wr exec <cmd...>         any command in the image, in cloudflare/ (used by the scripts)
 #   ./wr <wrangler args...>    anything else is passed to wrangler, e.g.
 #                              ./wr d1 migrations apply DB --remote
@@ -33,7 +33,6 @@ HOSTNAME_PUBLIC="localhost"
 ZONE_NAME="localhost"
 D1_NAME="where-to-go-today"
 D1_ID="00000000-0000-0000-0000-000000000000"
-R2_BUCKET="where-to-go-today-photos"
 TOKEN_FILE=""
 HAVE_ENV=0
 if [[ -f "$HERE/.env" ]]; then
@@ -52,8 +51,7 @@ render() {
       -e "s|__HOSTNAME__|$HOSTNAME_PUBLIC|" \
       -e "s|__ZONE__|$ZONE_NAME|" \
       -e "s|__D1_NAME__|$D1_NAME|" \
-      -e "s|__D1_ID__|$D1_ID|" \
-      -e "s|__R2_BUCKET__|$R2_BUCKET|" \
+      -e "s|__D1_ID__|${D1_ID:-00000000-0000-0000-0000-000000000000}|" \
       "$HERE/wrangler.template.jsonc" > "$HERE/wrangler.jsonc"
 }
 render
@@ -90,7 +88,7 @@ case "$cmd" in
   dev)
     shift
     PORTS=(-p 127.0.0.1:8787:8787)
-    # Local only: D1 and R2 are simulated under .wrangler/state; nothing touches Cloudflare.
+    # Local only: D1 is simulated under .wrangler/state; nothing touches Cloudflare.
     run wrangler dev --local --ip 0.0.0.0 --port 8787 "$@"
     ;;
   exec)

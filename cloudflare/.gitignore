@@ -2,7 +2,7 @@
 .env
 # Generated from wrangler.template.jsonc by ./wr.
 wrangler.jsonc
-# wrangler's local state (wrangler dev's D1 and R2) and caches.
+# wrangler's local state (wrangler dev's D1) and caches.
 .wrangler/
 node_modules
 # Data exports made by migrate-data.sh: family data.

@@ -1,24 +1,23 @@
 import { handle, type Platform } from '../../api/app.ts';
 import { useDriver } from '../../api/db/db.ts';
-import { usePhotoStore } from '../../api/photos/storage.ts';
+import { usePhotoStore, writePhoto } from '../../api/photos/storage.ts';
 import { useLoginLimiter } from '../../api/auth/guard.ts';
 import { purgeExpiredSessions } from '../../api/auth/session.ts';
 import { configure } from '../../api/config.ts';
 import logger, { addLogSink } from '../../api/logger.ts';
 import { d1Driver } from './d1.ts';
-import { r2PhotoStore } from './r2.ts';
+import { d1PhotoStore, MAX_PHOTO_BYTES } from './d1photos.ts';
 import { d1LoginLimiter, pruneLoginAttempts } from './limits.ts';
 import { flushLines, pruneLines, queueLine, readLines } from './logstore.ts';
 
 /**
  * The Cloudflare Worker: the same handler as the Deno server (`api/app.ts`), with D1 for
- * the database, R2 for photo bytes, and the client bundle as Workers static assets.
+ * the database and the photo bytes, and the client bundle as Workers static assets.
  * `run_worker_first` is on, so no request (static files included) reaches anything before
  * the country filter and the throttle.
  */
 export interface Env {
   DB: D1Database;
-  PHOTOS: R2Bucket;
   ASSETS: Fetcher;
   /** Rate Limiting binding: every request, per client address. */
   REQUESTS: RateLimit;
@@ -36,9 +35,13 @@ let ready = false;
 function setup(env: Env) {
   if (ready) return;
   const iterations = Number(env.PBKDF2_ITERATIONS);
-  configure({ dev: false, pbkdf2Iterations: iterations > 0 && iterations <= 100_000 ? iterations : 100_000 });
+  configure({
+    dev: false,
+    pbkdf2Iterations: iterations > 0 && iterations <= 100_000 ? iterations : 100_000,
+    maxPhotoBytes: MAX_PHOTO_BYTES,
+  });
   useDriver(d1Driver(env.DB));
-  usePhotoStore(r2PhotoStore(env.PHOTOS));
+  usePhotoStore(d1PhotoStore(env.DB));
   useLoginLimiter(d1LoginLimiter(env.DB));
   addLogSink(queueLine);
   ready = true;
@@ -60,31 +63,56 @@ async function sameSecret(a: string, b: string) {
   return crypto.subtle.timingSafeEqual(x, y);
 }
 
+const OPS_PHOTO_NAME = /^[0-9a-f-]{36}\.(jpg|png|webp)$/;
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
+  });
+}
+
 /**
- * `GET /api/ops/log?after=<id>&limit=<n>`: the stored log lines after a cursor, for the
- * home server's access watcher, which polls it in place of reading log files. Only with
- * the bearer token; without OPS_TOKEN set it does not exist.
+ * The home server's two ways in, both only with the bearer token, neither existing
+ * without OPS_TOKEN set:
+ *
+ * - `GET /api/ops/log?after=<id>&limit=<n>`: the stored log lines after a cursor, for the
+ *   access watcher, which polls it in place of reading log files.
+ * - `PUT /api/ops/photo?name=<filename>`: the bytes of a photo whose row already exists,
+ *   for `migrate-data.sh`. A photo is too large for one SQL statement in an import file,
+ *   so it comes through the same store the app writes with.
  */
-async function opsLog(req: Request, url: URL, env: Env, ip: string): Promise<Response | null> {
-  if (url.pathname !== '/api/ops/log') return null;
+async function ops(req: Request, url: URL, env: Env, ip: string): Promise<Response | null> {
+  const route = url.pathname === '/api/ops/log' && req.method === 'GET'
+    ? 'log'
+    : url.pathname === '/api/ops/photo' && req.method === 'PUT'
+    ? 'photo'
+    : null;
   const token = env.OPS_TOKEN;
-  if (!token || req.method !== 'GET') return null;
+  if (!route || !token) return null;
 
   const auth = req.headers.get('authorization') ?? '';
   if (!auth.startsWith('Bearer ') || !await sameSecret(auth.slice(7), token)) {
-    logger.warn('ops refused', { ip });
-    return new Response(JSON.stringify({ error: 'unauthorized' }), {
-      status: 401,
-      headers: { 'content-type': 'application/json; charset=utf-8' },
-    });
+    logger.warn('ops refused', { ip, path: url.pathname });
+    return json({ error: 'unauthorized' }, 401);
   }
 
-  const after = Math.max(0, Number(url.searchParams.get('after') ?? '0') || 0);
-  const limit = Math.min(OPS_LIMIT_MAX, Math.max(1, Number(url.searchParams.get('limit') ?? '500') || 500));
-  const lines = await readLines(env.DB, after, limit);
-  return new Response(JSON.stringify({ lines, next: lines.length ? lines[lines.length - 1].id : after }), {
-    headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
-  });
+  if (route === 'log') {
+    const after = Math.max(0, Number(url.searchParams.get('after') ?? '0') || 0);
+    const limit = Math.min(OPS_LIMIT_MAX, Math.max(1, Number(url.searchParams.get('limit') ?? '500') || 500));
+    const lines = await readLines(env.DB, after, limit);
+    return json({ lines, next: lines.length ? lines[lines.length - 1].id : after });
+  }
+
+  const name = url.searchParams.get('name') ?? '';
+  if (!OPS_PHOTO_NAME.test(name)) return json({ error: 'bad name' }, 400);
+  const row = await env.DB.prepare('SELECT 1 AS ok FROM photos WHERE filename = ?').bind(name).first();
+  if (!row) return json({ error: 'no photo row with that filename' }, 404);
+  const bytes = new Uint8Array(await req.arrayBuffer());
+  if (!bytes.byteLength || bytes.byteLength > MAX_PHOTO_BYTES) return json({ error: 'size' }, 413);
+  await writePhoto(name, bytes, req.headers.get('content-type') ?? 'image/jpeg');
+  logger.info('ops photo stored', { ip, bytes: bytes.byteLength });
+  return json({ stored: name, bytes: bytes.byteLength });
 }
 
 function platform(env: Env): Platform {
@@ -108,7 +136,7 @@ function platform(env: Env): Platform {
       env.ASSETS.fetch(
         new Request(new URL('/', url), { method: req.method === 'HEAD' ? 'HEAD' : 'GET', headers: req.headers }),
       ),
-    extraApi: (req, url) => opsLog(req, url, env, req.headers.get('cf-connecting-ip') ?? '0.0.0.0'),
+    extraApi: (req, url) => ops(req, url, env, req.headers.get('cf-connecting-ip') ?? '0.0.0.0'),
   };
 }
 

@@ -37,8 +37,6 @@
     }
   ],
 
-  "r2_buckets": [{ "binding": "PHOTOS", "bucket_name": "__R2_BUCKET__" }],
-
   // Every request, per client address: 600 a minute, as on the Deno server (approximate,
   // per Cloudflare location). The login throttle is strict and lives in D1 instead.
   "ratelimits": [

@@ -49,7 +49,7 @@ deploy-up:
 deploy-logs:
 	docker -c rootless logs -f where-to-go-today
 
-# --- Cloudflare Workers (D1 + R2; see cloudflare/README.md). Tooling runs in its own image.
+# --- Cloudflare Workers (D1; see cloudflare/README.md). Tooling runs in its own image.
 cf-check:
 	cloudflare/wr check
 

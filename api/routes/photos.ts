@@ -1,4 +1,5 @@
 import type { Auth } from '../auth/session.ts';
+import { config } from '../config.ts';
 import { getPlace } from '../db/places.ts';
 import { getVisit } from '../db/visits.ts';
 import { countPhotosForPlace, createPhoto, deletePhotoRow, getPhoto, listPhotos } from '../db/photos.ts';
@@ -13,7 +14,6 @@ const PHOTOS_LIMIT_MAX = 500;
  * to stop a runaway request rather than to shape the image. Doing it client-side is what
  * lets an iPhone HEIC arrive as a JPEG without adding an image library to the server.
  */
-const MAX_FILE_BYTES = 6 * 1024 * 1024;
 const MAX_UPLOAD_BYTES = 30 * 1024 * 1024;
 const MAX_FILES_PER_UPLOAD = 20;
 
@@ -95,7 +95,7 @@ export async function postPlacePhotos(req: Request, auth: Auth, placeId: string)
     if (!CONTENT_TYPES[file.type]) {
       return errorResponse(`${file.name || 'that file'} is not a JPEG, PNG or WebP`);
     }
-    if (file.size > MAX_FILE_BYTES) return errorResponse(`${file.name || 'that file'} is too large`);
+    if (file.size > config.maxPhotoBytes) return errorResponse(`${file.name || 'that file'} is too large`);
   }
 
   // Dimensions are measured client-side; the server has no decoder.
