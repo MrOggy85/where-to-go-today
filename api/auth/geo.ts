@@ -1,8 +1,8 @@
 import { dirname, join } from 'jsr:@std/path@1';
-import { dbPath } from '../db/db.ts';
+import { sqlitePath } from '../db/sqlite.ts';
 import logger from '../logger.ts';
 
-// Country allowlist for the public ingress. Off unless GEO_ALLOW_COUNTRIES is set (e.g. `JP`), so `make dev` and
+// Country allowlist for the Deno server's public ingress (a Worker uses Cloudflare's own country, cloudflare/src). Off unless GEO_ALLOW_COUNTRIES is set (e.g. `JP`), so `make dev` and
 // any deployment that is not public are unaffected.
 const COUNTRIES = (Deno.env.get('GEO_ALLOW_COUNTRIES') ?? '')
   .split(',')
@@ -12,7 +12,7 @@ const COUNTRIES = (Deno.env.get('GEO_ALLOW_COUNTRIES') ?? '')
 export const geoEnabled = COUNTRIES.length > 0;
 
 // Lives beside the database, inside the one volume that is already writable and backed up.
-const FILE = Deno.env.get('GEO_FILE') ?? join(dirname(dbPath()), 'geo-allow.json');
+const FILE = Deno.env.get('GEO_FILE') ?? join(dirname(sqlitePath()), 'geo-allow.json');
 
 const MAX_AGE_MS = 7 * 86_400_000;
 const CHECK_INTERVAL_MS = 6 * 3_600_000;

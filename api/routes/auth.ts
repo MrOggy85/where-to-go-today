@@ -17,19 +17,19 @@ import logger from '../logger.ts';
 const MAX_PASSWORD = 200;
 
 /** Profiles are only listed after the password check, so names do not leak pre-auth. */
-export function getMe(auth: Auth | null): Response {
+export async function getMe(auth: Auth | null): Promise<Response> {
   if (!auth) return jsonResponse({ authenticated: false }, 200);
 
   return jsonResponse({
     authenticated: true,
     household: { id: auth.householdId },
     profile: auth.profile,
-    profiles: listProfiles(auth.householdId),
+    profiles: await listProfiles(auth.householdId),
   });
 }
 
 export async function postLogin(req: Request, ip: string): Promise<Response> {
-  if (!loginAllowed(ip)) return errorResponse('too many attempts, try again later', 429);
+  if (!await loginAllowed(ip)) return errorResponse('too many attempts, try again later', 429);
 
   const parsed = await readJson<{ password?: unknown }>(req);
   if (!parsed.ok) return parsed.resp;
@@ -39,7 +39,7 @@ export async function postLogin(req: Request, ip: string): Promise<Response> {
     return errorResponse('invalid credentials', 401);
   }
 
-  const household = getHousehold();
+  const household = await getHousehold();
   if (!household) return errorResponse('no household configured, run make seed', 503);
 
   if (!await verifyPassword(password, household.passwordHash)) {
@@ -47,14 +47,14 @@ export async function postLogin(req: Request, ip: string): Promise<Response> {
     return errorResponse('invalid credentials', 401);
   }
 
-  resetLoginAttempts(ip);
+  await resetLoginAttempts(ip);
 
   // Fresh session id on every login: nothing carries over from a previous one.
-  const sessionId = createSession(household.id);
+  const sessionId = await createSession(household.id);
   logger.info('login succeeded', { ip, sid: await sessionTag(sessionId) });
 
   return withCookie(
-    jsonResponse({ authenticated: true, household: { id: household.id }, profiles: listProfiles(household.id) }),
+    jsonResponse({ authenticated: true, household: { id: household.id }, profiles: await listProfiles(household.id) }),
     sessionCookie(sessionId),
   );
 }
@@ -66,14 +66,14 @@ export async function postProfile(req: Request, auth: Auth): Promise<Response> {
   const profileId = parsed.value.profileId;
   if (typeof profileId !== 'string') return errorResponse('profileId is required');
 
-  const profile = getProfile(auth.householdId, profileId);
+  const profile = await getProfile(auth.householdId, profileId);
   if (!profile) return errorResponse('unknown profile', 404);
 
-  selectProfile(auth.sessionId, profile.id);
+  await selectProfile(auth.sessionId, profile.id);
   return jsonResponse({ profile });
 }
 
-export function postLogout(auth: Auth | null): Response {
-  if (auth) destroySession(auth.sessionId);
+export async function postLogout(auth: Auth | null): Promise<Response> {
+  if (auth) await destroySession(auth.sessionId);
   return withCookie(jsonResponse({ authenticated: false }), clearedCookie());
 }

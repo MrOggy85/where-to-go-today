@@ -39,13 +39,13 @@ import {
 type Body = Record<string, any>;
 
 /** Only name, environment and status have defaults; a sparse place is a valid place. */
-function parsePlace(body: Body, householdId: string): PlaceInput {
+async function parsePlace(body: Body, householdId: string): Promise<PlaceInput> {
   return {
     name: str(body.name, 'name', MAX_NAME),
     status: body.status === undefined ? 'active' : oneOf(body.status, 'status', STATUSES),
     environment: oneOf(body.environment, 'environment', ENVIRONMENTS),
     // Narrowed against the household: an id from the client never scopes data on its own.
-    categoryIds: ownedCategoryIds(householdId, optCategoryIds(body.categoryIds)),
+    categoryIds: await ownedCategoryIds(householdId, optCategoryIds(body.categoryIds)),
     address: optStr(body.address, 'address', MAX_ADDRESS),
     latitude: optFloat(body.latitude, 'latitude', -90, 90),
     longitude: optFloat(body.longitude, 'longitude', -180, 180),
@@ -83,7 +83,7 @@ function optUrl(value: unknown, field: string): string | null {
   return url.toString();
 }
 
-export function getPlaces(url: URL, auth: Auth): Response {
+export async function getPlaces(url: URL, auth: Auth): Promise<Response> {
   const params = url.searchParams;
   const filters: PlaceFilters = {};
 
@@ -113,15 +113,15 @@ export function getPlaces(url: URL, auth: Auth): Response {
   }
 
   return jsonResponse({
-    places: listPlaces(auth.householdId, filters),
-    categories: listCategories(auth.householdId),
+    places: await listPlaces(auth.householdId, filters),
+    categories: await listCategories(auth.householdId),
   });
 }
 
-export function getPlaceById(auth: Auth, id: string): Response {
-  const place = getPlace(auth.householdId, id);
+export async function getPlaceById(auth: Auth, id: string): Promise<Response> {
+  const place = await getPlace(auth.householdId, id);
   if (!place) return errorResponse('place not found', 404);
-  return jsonResponse({ place, visits: listVisitsForPlace(auth.householdId, id) });
+  return jsonResponse({ place, visits: await listVisitsForPlace(auth.householdId, id) });
 }
 
 export async function postPlaces(req: Request, auth: Auth): Promise<Response> {
@@ -129,7 +129,8 @@ export async function postPlaces(req: Request, auth: Auth): Promise<Response> {
   if (!parsed.ok) return parsed.resp;
 
   try {
-    const place = createPlace(auth.householdId, auth.profile?.id ?? null, parsePlace(parsed.value, auth.householdId));
+    const input = await parsePlace(parsed.value, auth.householdId);
+    const place = await createPlace(auth.householdId, auth.profile?.id ?? null, input);
     return jsonResponse({ place }, 201);
   } catch (e) {
     if (e instanceof ValidationError) return errorResponse(e.message);
@@ -143,7 +144,7 @@ export async function putPlace(req: Request, auth: Auth, id: string): Promise<Re
   if (!parsed.ok) return parsed.resp;
 
   try {
-    const place = updatePlace(auth.householdId, id, parsePlace(parsed.value, auth.householdId));
+    const place = await updatePlace(auth.householdId, id, await parsePlace(parsed.value, auth.householdId));
     if (!place) return errorResponse('place not found', 404);
     return jsonResponse({ place });
   } catch (e) {
@@ -153,7 +154,7 @@ export async function putPlace(req: Request, auth: Auth, id: string): Promise<Re
 }
 
 export async function deletePlaceById(auth: Auth, id: string): Promise<Response> {
-  const { result, orphanedFiles } = deletePlace(auth.householdId, id);
+  const { result, orphanedFiles } = await deletePlace(auth.householdId, id);
   if (result === 'missing') return errorResponse('place not found', 404);
 
   // The rows cascaded with the place; the files have to be unlinked by hand.

@@ -2,7 +2,7 @@ import type { Auth } from '../auth/session.ts';
 import { getPlace } from '../db/places.ts';
 import { getVisit } from '../db/visits.ts';
 import { countPhotosForPlace, createPhoto, deletePhotoRow, getPhoto, listPhotos } from '../db/photos.ts';
-import { CONTENT_TYPES, newFilename, photoPath, removePhoto, writePhoto } from '../photos/storage.ts';
+import { CONTENT_TYPES, newFilename, readPhoto, removePhoto, writePhoto } from '../photos/storage.ts';
 import { clampInt, errorResponse, jsonResponse, optInt, optIsoDate, ValidationError } from '../db/validate.ts';
 
 const PHOTOS_LIMIT_DEFAULT = 120;
@@ -17,17 +17,17 @@ const MAX_FILE_BYTES = 6 * 1024 * 1024;
 const MAX_UPLOAD_BYTES = 30 * 1024 * 1024;
 const MAX_FILES_PER_UPLOAD = 20;
 
-/** Cap per place so one visit cannot fill the home server's disk. */
+/** Cap per place so one visit cannot fill the photo storage. */
 const MAX_PHOTOS_PER_PLACE = 300;
 
-export function getPhotos(url: URL, auth: Auth): Response {
+export async function getPhotos(url: URL, auth: Auth): Promise<Response> {
   const params = url.searchParams;
   const limit = clampInt(params.get('limit'), 1, PHOTOS_LIMIT_MAX, PHOTOS_LIMIT_DEFAULT);
 
   const placeId = params.get('placeId') ?? undefined;
   const visitId = params.get('visitId') ?? undefined;
 
-  return jsonResponse({ photos: listPhotos(auth.householdId, { placeId, visitId }, limit) });
+  return jsonResponse({ photos: await listPhotos(auth.householdId, { placeId, visitId }, limit) });
 }
 
 /**
@@ -35,25 +35,22 @@ export function getPhotos(url: URL, auth: Auth): Response {
  * another household returns 404 rather than an image.
  */
 export async function getPhotoFile(auth: Auth, id: string): Promise<Response> {
-  const photo = getPhoto(auth.householdId, id);
+  const photo = await getPhoto(auth.householdId, id);
   if (!photo) return errorResponse('photo not found', 404);
 
-  try {
-    const bytes = await Deno.readFile(photoPath(photo.filename));
-    return new Response(bytes, {
-      headers: {
-        'content-type': photo.contentType,
-        'content-length': String(bytes.byteLength),
-        // Immutable once written, but private: this is family data, never a shared cache's.
-        'cache-control': 'private, max-age=31536000, immutable',
-        'content-disposition': 'inline',
-        'x-content-type-options': 'nosniff',
-      },
-    });
-  } catch (e) {
-    if (e instanceof Deno.errors.NotFound) return errorResponse('photo file is missing', 410);
-    throw e;
-  }
+  const file = await readPhoto(photo.filename);
+  if (!file) return errorResponse('photo file is missing', 410);
+
+  return new Response(file.body, {
+    headers: {
+      'content-type': photo.contentType,
+      'content-length': String(file.size),
+      // Immutable once written, but private: this is family data, never a shared cache's.
+      'cache-control': 'private, max-age=31536000, immutable',
+      'content-disposition': 'inline',
+      'x-content-type-options': 'nosniff',
+    },
+  });
 }
 
 /**
@@ -61,7 +58,7 @@ export async function getPhotoFile(auth: Auth, id: string): Promise<Response> {
  * needs a place, not a visit.
  */
 export async function postPlacePhotos(req: Request, auth: Auth, placeId: string): Promise<Response> {
-  if (!getPlace(auth.householdId, placeId)) return errorResponse('place not found', 404);
+  if (!await getPlace(auth.householdId, placeId)) return errorResponse('place not found', 404);
 
   const declared = Number(req.headers.get('content-length') ?? '0');
   if (declared > MAX_UPLOAD_BYTES) return errorResponse('upload too large', 413);
@@ -77,7 +74,7 @@ export async function postPlacePhotos(req: Request, auth: Auth, placeId: string)
   let visitId: string | null = null;
   const rawVisitId = form.get('visitId');
   if (typeof rawVisitId === 'string' && rawVisitId) {
-    const visit = getVisit(auth.householdId, rawVisitId);
+    const visit = await getVisit(auth.householdId, rawVisitId);
     if (!visit) return errorResponse('visit not found', 404);
     if (visit.placeId !== placeId) return errorResponse('visit belongs to a different place');
     visitId = visit.id;
@@ -87,7 +84,7 @@ export async function postPlacePhotos(req: Request, auth: Auth, placeId: string)
   if (!files.length) return errorResponse('no photos in the upload');
   if (files.length > MAX_FILES_PER_UPLOAD) return errorResponse(`at most ${MAX_FILES_PER_UPLOAD} photos at a time`);
 
-  const existing = countPhotosForPlace(auth.householdId, placeId);
+  const existing = await countPhotosForPlace(auth.householdId, placeId);
   if (existing + files.length > MAX_PHOTOS_PER_PLACE) {
     return errorResponse(`this place is limited to ${MAX_PHOTOS_PER_PLACE} photos`);
   }
@@ -112,19 +109,21 @@ export async function postPlacePhotos(req: Request, auth: Auth, placeId: string)
       const bytes = new Uint8Array(await file.arrayBuffer());
       const filename = newFilename(file.type);
 
-      await writePhoto(filename, bytes);
+      await writePhoto(filename, bytes, file.type);
       written.push(filename);
 
-      created.push(createPhoto(auth.householdId, auth.profile?.id ?? null, {
-        placeId,
-        visitId,
-        filename,
-        contentType: file.type,
-        sizeBytes: bytes.byteLength,
-        width: widths[i] ?? null,
-        height: heights[i] ?? null,
-        capturedAt: capturedAt(form, i),
-      }));
+      created.push(
+        await createPhoto(auth.householdId, auth.profile?.id ?? null, {
+          placeId,
+          visitId,
+          filename,
+          contentType: file.type,
+          sizeBytes: bytes.byteLength,
+          width: widths[i] ?? null,
+          height: heights[i] ?? null,
+          capturedAt: capturedAt(form, i),
+        }),
+      );
     }
     return jsonResponse({ photos: created }, 201);
   } catch (e) {
@@ -134,7 +133,7 @@ export async function postPlacePhotos(req: Request, auth: Auth, placeId: string)
   }
 }
 
-function numberList(value: FormDataEntryValue | null): (number | null)[] {
+function numberList(value: unknown): (number | null)[] {
   if (typeof value !== 'string' || !value) return [];
   return value.split(',').map((v) => {
     try {
@@ -158,10 +157,10 @@ function capturedAt(form: FormData, index: number): string | null {
 }
 
 export async function deletePhotoById(auth: Auth, id: string): Promise<Response> {
-  const photo = getPhoto(auth.householdId, id);
+  const photo = await getPhoto(auth.householdId, id);
   if (!photo) return errorResponse('photo not found', 404);
 
-  deletePhotoRow(auth.householdId, id);
+  await deletePhotoRow(auth.householdId, id);
   // Row first: an orphaned file wastes space, an orphaned row breaks the grid.
   await removePhoto(photo.filename);
   return jsonResponse({ result: 'deleted' });

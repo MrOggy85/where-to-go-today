@@ -1,0 +1,13 @@
+{
+  "name": "where-to-go-today-cloudflare",
+  "private": true,
+  "description": "Deploy tooling for the Cloudflare Workers build. Runs inside the image from ./Dockerfile, never on the host.",
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20261116.1",
+    "typescript": "5.9.3",
+    "wrangler": "4.162.0"
+  }
+}

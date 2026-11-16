@@ -16,7 +16,7 @@ function optFlag(params: URLSearchParams, name: string): boolean | undefined {
  * The product endpoint. Everything is optional: with no query params it answers "what
  * should we do today?" from place data alone, which is what the home screen loads.
  */
-export function getToday(url: URL, auth: Auth): Response {
+export async function getToday(url: URL, auth: Auth): Promise<Response> {
   const params = url.searchParams;
 
   const tempParam = params.get('temperatureC');
@@ -42,7 +42,7 @@ export function getToday(url: URL, auth: Auth): Response {
 
   // Archived places are dropped by the engine's eligibility filter, not here, so the
   // excluded count stays meaningful.
-  const places = listPlaces(auth.householdId, {});
+  const places = await listPlaces(auth.householdId, {});
 
   const result = recommend(places, {
     now: new Date(),

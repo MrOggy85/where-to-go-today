@@ -46,7 +46,7 @@ export interface PhotoFilters {
 }
 
 /** Newest first: the grid is a reverse-chronological memory feed. */
-export function listPhotos(householdId: string, f: PhotoFilters, limit: number): PhotoWithPlace[] {
+export async function listPhotos(householdId: string, f: PhotoFilters, limit: number): Promise<PhotoWithPlace[]> {
   const where = ['ph.household_id = ?'];
   const params: unknown[] = [householdId];
 
@@ -59,15 +59,15 @@ export function listPhotos(householdId: string, f: PhotoFilters, limit: number):
     params.push(f.visitId);
   }
 
-  return rows<PhotoRow>(
+  return (await rows<PhotoRow>(
     `${SELECT_PHOTO} WHERE ${where.join(' AND ')} ORDER BY ph.uploaded_at DESC LIMIT ?`,
     ...params,
     limit,
-  ).map(toPhoto);
+  )).map(toPhoto);
 }
 
-export function getPhoto(householdId: string, id: string): PhotoWithPlace | null {
-  const r = row<PhotoRow>(`${SELECT_PHOTO} WHERE ph.household_id = ? AND ph.id = ?`, householdId, id);
+export async function getPhoto(householdId: string, id: string): Promise<PhotoWithPlace | null> {
+  const r = await row<PhotoRow>(`${SELECT_PHOTO} WHERE ph.household_id = ? AND ph.id = ?`, householdId, id);
   return r ? toPhoto(r) : null;
 }
 
@@ -82,9 +82,9 @@ export interface PhotoInput {
   capturedAt: string | null;
 }
 
-export function createPhoto(householdId: string, profileId: string | null, input: PhotoInput): Photo {
+export async function createPhoto(householdId: string, profileId: string | null, input: PhotoInput): Promise<Photo> {
   const id = newId();
-  run(
+  await run(
     `INSERT INTO photos (id, household_id, place_id, visit_id, filename, content_type, size_bytes,
                          width, height, captured_at, uploaded_at, uploaded_by_profile_id)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -101,24 +101,24 @@ export function createPhoto(householdId: string, profileId: string | null, input
     nowIso(),
     profileId,
   );
-  return getPhoto(householdId, id)!;
+  return (await getPhoto(householdId, id))!;
 }
 
-export function deletePhotoRow(householdId: string, id: string): boolean {
-  return Number(run('DELETE FROM photos WHERE household_id = ? AND id = ?', householdId, id).changes) > 0;
+export async function deletePhotoRow(householdId: string, id: string): Promise<boolean> {
+  return Number((await run('DELETE FROM photos WHERE household_id = ? AND id = ?', householdId, id)).changes) > 0;
 }
 
 /** Filenames whose rows are about to disappear, so their files can be removed too. */
-export function filenamesForPlace(householdId: string, placeId: string): string[] {
-  return rows<{ filename: string }>(
+export async function filenamesForPlace(householdId: string, placeId: string): Promise<string[]> {
+  return (await rows<{ filename: string }>(
     'SELECT filename FROM photos WHERE household_id = ? AND place_id = ?',
     householdId,
     placeId,
-  ).map((r) => r.filename);
+  )).map((r) => r.filename);
 }
 
-export function countPhotosForPlace(householdId: string, placeId: string): number {
-  const r = row<{ n: number }>(
+export async function countPhotosForPlace(householdId: string, placeId: string): Promise<number> {
+  const r = await row<{ n: number }>(
     'SELECT COUNT(*) AS n FROM photos WHERE household_id = ? AND place_id = ?',
     householdId,
     placeId,

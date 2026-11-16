@@ -31,12 +31,12 @@ function toVisit(r: VisitRow): Visit {
   };
 }
 
-export function listVisitsForPlace(householdId: string, placeId: string): Visit[] {
-  return rows<VisitRow>(
+export async function listVisitsForPlace(householdId: string, placeId: string): Promise<Visit[]> {
+  return (await rows<VisitRow>(
     'SELECT * FROM visits WHERE household_id = ? AND place_id = ? ORDER BY visited_at DESC',
     householdId,
     placeId,
-  ).map(toVisit);
+  )).map(toVisit);
 }
 
 function toVisitWithPlace(r: VisitRow): VisitWithPlace {
@@ -53,8 +53,8 @@ function toVisitWithPlace(r: VisitRow): VisitWithPlace {
  * `id` breaks the sort tie because a backdated visit is stored at noon local, so a whole
  * day of them shares one timestamp and paging would otherwise skip or repeat rows.
  */
-export function listVisits(householdId: string, limit: number, offset = 0): VisitWithPlace[] {
-  return rows<VisitRow>(
+export async function listVisits(householdId: string, limit: number, offset = 0): Promise<VisitWithPlace[]> {
+  return (await rows<VisitRow>(
     `SELECT v.*, p.name AS place_name,
        (SELECT json_group_array(id) FROM (
           SELECT ph.id AS id FROM photos ph
@@ -69,11 +69,11 @@ export function listVisits(householdId: string, limit: number, offset = 0): Visi
     householdId,
     limit,
     offset,
-  ).map(toVisitWithPlace);
+  )).map(toVisitWithPlace);
 }
 
-export function getVisit(householdId: string, id: string): Visit | null {
-  const r = row<VisitRow>('SELECT * FROM visits WHERE household_id = ? AND id = ?', householdId, id);
+export async function getVisit(householdId: string, id: string): Promise<Visit | null> {
+  const r = await row<VisitRow>('SELECT * FROM visits WHERE household_id = ? AND id = ?', householdId, id);
   return r ? toVisit(r) : null;
 }
 
@@ -84,10 +84,10 @@ export interface VisitInput {
 }
 
 /** The date and note are corrections; somewhere else is a new visit, not an edit. */
-export function updateVisit(householdId: string, id: string, input: VisitInput): Visit | null {
-  if (!getVisit(householdId, id)) return null;
+export async function updateVisit(householdId: string, id: string, input: VisitInput): Promise<Visit | null> {
+  if (!await getVisit(householdId, id)) return null;
 
-  run(
+  await run(
     'UPDATE visits SET visited_at = ?, note = ?, rating = ? WHERE household_id = ? AND id = ?',
     input.visitedAt,
     input.note,
@@ -98,14 +98,14 @@ export function updateVisit(householdId: string, id: string, input: VisitInput):
   return getVisit(householdId, id);
 }
 
-export function createVisit(
+export async function createVisit(
   householdId: string,
   placeId: string,
   profileId: string | null,
   input: VisitInput,
-): Visit {
+): Promise<Visit> {
   const id = newId();
-  run(
+  await run(
     `INSERT INTO visits (id, household_id, place_id, visited_at, note, rating, created_at, created_by_profile_id)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     id,
@@ -117,10 +117,10 @@ export function createVisit(
     nowIso(),
     profileId,
   );
-  return toVisit(row<VisitRow>('SELECT * FROM visits WHERE id = ?', id)!);
+  return toVisit((await row<VisitRow>('SELECT * FROM visits WHERE id = ?', id))!);
 }
 
-export function deleteVisit(householdId: string, id: string): boolean {
-  const result = run('DELETE FROM visits WHERE household_id = ? AND id = ?', householdId, id);
+export async function deleteVisit(householdId: string, id: string): Promise<boolean> {
+  const result = await run('DELETE FROM visits WHERE household_id = ? AND id = ?', householdId, id);
   return Number(result.changes) > 0;
 }

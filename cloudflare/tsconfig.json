@@ -1,0 +1,17 @@
+{
+  // Type-checks the Worker and, through its imports, the shared api code it bundles.
+  // Run inside the tooling image: ./wr check
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": ["es2023"],
+    "types": ["@cloudflare/workers-types"],
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "isolatedModules": true
+  },
+  "files": ["src/index.ts"]
+}

@@ -1,4 +1,4 @@
-.PHONY: install seed dev build start check fmt icons deploy-build deploy-up deploy-logs
+.PHONY: install seed dev build start check fmt icons deploy-build deploy-up deploy-logs cf-check cf-dev cf-deploy
 
 # The client needs react + esbuild; the api has no dependencies.
 install:
@@ -48,3 +48,13 @@ deploy-up:
 
 deploy-logs:
 	docker -c rootless logs -f where-to-go-today
+
+# --- Cloudflare Workers (D1 + R2; see cloudflare/README.md). Tooling runs in its own image.
+cf-check:
+	cloudflare/wr check
+
+cf-dev:
+	cloudflare/wr build-client && cloudflare/wr dev
+
+cf-deploy:
+	cloudflare/deploy.sh

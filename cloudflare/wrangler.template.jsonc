@@ -1,0 +1,51 @@
+// Template for wrangler.jsonc, which ./wr renders from this file and .env (see
+// .env.example) so the account, database ids and hostname stay out of this public repo.
+// Edit this file, never the output. __NAME__ placeholders are replaced verbatim.
+{
+  "$schema": "/opt/cloudflare/node_modules/wrangler/config-schema.json",
+  "name": "where-to-go-today",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-01",
+  "account_id": "__CF_ACCOUNT_ID__",
+
+  // The one way in: a Custom Domain on the zone. No workers.dev address and no preview
+  // URLs, so nothing reaches the Worker by a name the country filter was not tested on.
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{ "pattern": "__HOSTNAME__", "custom_domain": true }],
+
+  // The client bundle (make build -> api/client). run_worker_first: the Worker sees every
+  // request, so the country filter and throttle run before any file is served, and the
+  // Worker serves index.html for page paths itself (not_found_handling stays "none").
+  "assets": {
+    "directory": "../api/client",
+    "binding": "ASSETS",
+    "run_worker_first": true,
+    "not_found_handling": "none"
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "__D1_NAME__",
+      "database_id": "__D1_ID__",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  "r2_buckets": [{ "binding": "PHOTOS", "bucket_name": "__R2_BUCKET__" }],
+
+  // Every request, per client address: 600 a minute, as on the Deno server (approximate,
+  // per Cloudflare location). The login throttle is strict and lives in D1 instead.
+  "ratelimits": [
+    { "name": "REQUESTS", "namespace_id": "1001", "simple": { "limit": 600, "period": 60 } }
+  ],
+
+  "vars": { "GEO_ALLOW_COUNTRIES": "JP" },
+  // OPS_TOKEN is a secret: ./wr secret put OPS_TOKEN
+
+  // 03:17 JST: expired sessions, stale login counters, log lines past 90 days.
+  "triggers": { "crons": ["17 18 * * *"] },
+
+  "observability": { "enabled": true }
+}

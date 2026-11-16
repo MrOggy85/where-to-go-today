@@ -5,14 +5,24 @@ update it in the same change when a new requirement conflicts with it.
 
 ## Rules that are easy to break
 
-- All SQL lives in `api/db/`. Route handlers call functions there, never `db.prepare`.
+- The api runs on two runtimes from one codebase: Deno (`api/main.ts`, SQLite, disk) and a
+  Cloudflare Worker (`cloudflare/src/index.ts`, D1, R2). Shared code (`api/app.ts`, routes,
+  `api/db/*` except `sqlite.ts`, `api/auth/*` except `geo.ts`) must not touch `Deno.*`,
+  `jsr:` imports or Worker bindings; runtime specifics go in an adapter. `cloudflare/wr check`
+  is what proves it.
+- All SQL lives in `api/db/`, through `rows`/`row`/`run`/`batch` in `api/db/db.ts`. Route
+  handlers call functions there, never a driver. Writes that belong together go in one
+  `batch` (a D1 batch is a transaction); there is no `BEGIN`.
+- A schema change is a new file in `cloudflare/migrations/` **and** the matching change in
+  `api/db/schema.sql`/`migrate.ts`.
 - Every query filters on `household_id`. Never trust an id from the client to scope data.
 - Recommendation weights belong in `api/recommendations/config.ts`, not in `engine.ts`.
 - Missing place metadata means "unknown", never "exclude". Eligibility filters stay
   conservative.
 - Places with visit history are archived, not deleted.
-- Photo bytes live in `<data dir>/photos/` and are served **only** by
-  `GET /api/photos/:id/file`, which scopes on `household_id` first. Never as static files.
+- Photo bytes live behind `api/photos/storage.ts` (`<data dir>/photos/` on Deno, the
+  private R2 bucket on the Worker) and are served **only** by `GET /api/photos/:id/file`,
+  which scopes on `household_id` first. Never as static files.
 - Deleting photo rows must unlink the files too, including when they vanish by cascade from
   a deleted place. An orphaned row breaks the grid; an orphaned file never gets collected.
 - Images are resized in the browser (`client/src/photos.ts`), never on the server. The api
@@ -47,7 +57,7 @@ update it in the same change when a new requirement conflicts with it.
 
 ## Conventions
 
-- Deno + `Deno.serve` for the api, React + CSS Modules + esbuild for the client.
+- Deno + `Deno.serve` or a Cloudflare Worker for the api, React + CSS Modules + esbuild for the client.
 - `jsr:`/`npm:` specifiers inline; no import map.
 - Single quotes, semicolons, 120 columns. Run `make fmt`.
 - Route handlers return `jsonResponse` / `errorResponse` from `api/db/validate.ts`.
@@ -57,12 +67,19 @@ update it in the same change when a new requirement conflicts with it.
 
 ```sh
 make check
-make dev   # then exercise the loop over http://localhost:8777
+make dev       # then exercise the loop over http://localhost:8777
+make cf-check  # the Worker build type-checks (shared code stays runtime-free)
+make cf-dev    # the Worker locally on http://127.0.0.1:8787, local D1 and R2
 ```
 
 `scripts/seed.ts --demo` gives enough places for the Today page to be meaningful.
 
 ## Deployment
+
+**Moving to Cloudflare Workers** (prepared 2026-11-16, branch `cloudflare`): D1 + R2 +
+static assets on a Custom Domain, so the home server leaves the request path.
+`cloudflare/README.md` has the setup, the differences from the Deno server and why. Until
+the cutover, the Deno deployment below is production.
 
 Production runs on the home server as two Docker containers on the **rootless** daemon
 (since 2026-11-11; every deploy script sets `DOCKER_CONTEXT=rootless`), public over

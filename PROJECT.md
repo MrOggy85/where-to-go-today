@@ -917,6 +917,13 @@ that trade stops being acceptable.
 
 Deno Deploy remains a possible future deployment alternative, but it is not the default architecture and the application must not depend on Deploy-specific storage APIs.
 
+**Cloudflare Workers** (prepared 2026-11-16) is the next production target, to take the home
+server out of the public request path. It keeps this rule rather than breaking it: the
+database, photo storage and log sink sit behind small interfaces (`api/db/db.ts`,
+`api/photos/storage.ts`, `api/logger.ts`), with SQLite + disk adapters for Deno and
+D1 + R2 adapters for the Worker, sharing one handler (`api/app.ts`). The requirements above
+hold on both; `cloudflare/README.md` lists how each is met there.
+
 ## 22. API sketch
 
 Names can change during implementation.

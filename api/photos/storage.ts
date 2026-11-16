@@ -1,27 +1,27 @@
-import { dirname, fromFileUrl, join, resolve } from 'jsr:@std/path@1';
-import { dbPath } from '../db/db.ts';
-
 /**
- * Photo bytes live beside the SQLite file, so the one directory the deployment already
- * mounts and backs up covers both. Never served as static files: every read goes through
- * `GET /api/photos/:id/file`, which checks the session first.
+ * Where photo bytes live, behind one small interface so neither runtime's storage leaks
+ * into the routes: `api/photos/disk.ts` keeps them beside the SQLite file for the Deno
+ * server, `cloudflare/src/r2.ts` keeps them in an R2 bucket for the Worker. Never served
+ * as static files either way: every read goes through `GET /api/photos/:id/file`, which
+ * checks the session first.
  */
-function resolveDir(): string {
-  const configured = Deno.env.get('PHOTOS_DIR');
-  if (configured) return resolve(configured);
-
-  const db = dbPath();
-  // An in-memory database has no directory to sit next to.
-  if (db === ':memory:') return fromFileUrl(new URL('../.data/photos', import.meta.url));
-  return join(dirname(resolve(db)), 'photos');
+export interface PhotoStore {
+  /** null when the bytes are gone; the row may still exist. */
+  read(filename: string): Promise<{ body: BodyInit; size: number } | null>;
+  write(filename: string, bytes: Uint8Array, contentType: string): Promise<void>;
+  /** Missing files are not an error: the row is going away either way. */
+  remove(filename: string): Promise<void>;
 }
 
-const dir = resolveDir();
+let store: PhotoStore | null = null;
 
-Deno.mkdirSync(dir, { recursive: true });
+export function usePhotoStore(s: PhotoStore) {
+  store = s;
+}
 
-export function photosDir() {
-  return dir;
+function current(): PhotoStore {
+  if (!store) throw new Error('no photo store configured');
+  return store;
 }
 
 export const CONTENT_TYPES: Record<string, string> = {
@@ -35,21 +35,15 @@ export function newFilename(contentType: string): string {
   return `${crypto.randomUUID()}.${CONTENT_TYPES[contentType] ?? 'jpg'}`;
 }
 
-export function photoPath(filename: string): string {
-  // basename guards the join: a filename only ever comes from our own column, but a
-  // traversal here would read outside the data directory.
-  return join(dir, filename.replace(/[/\\]/g, ''));
+/**
+ * A filename only ever comes from our own column, but stripping separators keeps a bad
+ * value from reaching outside the photo directory or bucket prefix.
+ */
+export function safeName(filename: string): string {
+  return filename.replace(/[/\\]/g, '');
 }
 
-export async function writePhoto(filename: string, bytes: Uint8Array) {
-  await Deno.writeFile(photoPath(filename), bytes, { mode: 0o600 });
-}
-
-/** Missing files are not an error: the row is going away either way. */
-export async function removePhoto(filename: string) {
-  try {
-    await Deno.remove(photoPath(filename));
-  } catch (e) {
-    if (!(e instanceof Deno.errors.NotFound)) throw e;
-  }
-}
+export const readPhoto = (filename: string) => current().read(safeName(filename));
+export const writePhoto = (filename: string, bytes: Uint8Array, contentType: string) =>
+  current().write(safeName(filename), bytes, contentType);
+export const removePhoto = (filename: string) => current().remove(safeName(filename));

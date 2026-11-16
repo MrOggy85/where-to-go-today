@@ -16,14 +16,18 @@ interface HouseholdRow {
 }
 
 /** v1 has exactly one household; the row is the whole tenancy boundary. */
-export function getHousehold(): Household | null {
-  const r = row<HouseholdRow>('SELECT * FROM households ORDER BY created_at LIMIT 1');
+export async function getHousehold(): Promise<Household | null> {
+  const r = await row<HouseholdRow>('SELECT * FROM households ORDER BY created_at LIMIT 1');
   return r ? { id: r.id, name: r.name, passwordHash: r.password_hash, timezone: r.timezone } : null;
 }
 
-export function createHousehold(name: string, passwordHash: string, timezone = 'Asia/Tokyo'): Household {
+export async function createHousehold(
+  name: string,
+  passwordHash: string,
+  timezone = 'Asia/Tokyo',
+): Promise<Household> {
   const id = newId();
-  run(
+  await run(
     'INSERT INTO households (id, name, password_hash, timezone, created_at) VALUES (?, ?, ?, ?, ?)',
     id,
     name,
@@ -34,20 +38,26 @@ export function createHousehold(name: string, passwordHash: string, timezone = '
   return { id, name, passwordHash, timezone };
 }
 
-export function setHouseholdPassword(id: string, passwordHash: string) {
-  run('UPDATE households SET password_hash = ? WHERE id = ?', passwordHash, id);
+export async function setHouseholdPassword(id: string, passwordHash: string) {
+  await run('UPDATE households SET password_hash = ? WHERE id = ?', passwordHash, id);
 }
 
-export function listProfiles(householdId: string): Profile[] {
+export function listProfiles(householdId: string): Promise<Profile[]> {
   return rows<Profile>('SELECT id, name FROM profiles WHERE household_id = ? ORDER BY created_at', householdId);
 }
 
-export function getProfile(householdId: string, id: string): Profile | null {
+export function getProfile(householdId: string, id: string): Promise<Profile | null> {
   return row<Profile>('SELECT id, name FROM profiles WHERE household_id = ? AND id = ?', householdId, id);
 }
 
-export function createProfile(householdId: string, name: string): Profile {
+export async function createProfile(householdId: string, name: string): Promise<Profile> {
   const id = newId();
-  run('INSERT INTO profiles (id, household_id, name, created_at) VALUES (?, ?, ?, ?)', id, householdId, name, nowIso());
+  await run(
+    'INSERT INTO profiles (id, household_id, name, created_at) VALUES (?, ?, ?, ?)',
+    id,
+    householdId,
+    name,
+    nowIso(),
+  );
   return { id, name };
 }

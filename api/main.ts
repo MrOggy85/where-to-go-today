@@ -1,13 +1,23 @@
 import { init } from './server.ts';
-import { startSessionCleanup } from './auth/session.ts';
+import { purgeExpiredSessions } from './auth/session.ts';
 import { startGeoRefresh } from './auth/geo.ts';
-import { dbPath } from './db/db.ts';
+import { useDriver } from './db/db.ts';
+import { openSqlite, sqlitePath } from './db/sqlite.ts';
+import { usePhotoStore } from './photos/storage.ts';
+import { diskPhotoStore } from './photos/disk.ts';
 import { getHousehold } from './db/households.ts';
-import logger, { startLogFiles } from './logger.ts';
+import { configure } from './config.ts';
+import logger from './logger.ts';
+import { startLogFiles } from './logfile.ts';
 
 startLogFiles();
 
 const DEV = Deno.env.get('DEV') === '1';
+configure({ dev: DEV });
+
+const dbPath = sqlitePath();
+useDriver(openSqlite(dbPath));
+usePhotoStore(diskPhotoStore(dbPath));
 const HOST = Deno.env.get('HOST') || '0.0.0.0';
 const PORT = Number(Deno.env.get('PORT') || '8777');
 
@@ -57,13 +67,16 @@ if (DEV && hasClient) {
   logger.warn('client/build-watch.ts not found, serving API only');
 }
 
-startSessionCleanup();
+const SESSION_CLEANUP_MS = 60 * 60 * 1000;
+await purgeExpiredSessions();
+Deno.unrefTimer(setInterval(() => purgeExpiredSessions().catch(() => {}), SESSION_CLEANUP_MS));
+
 startGeoRefresh();
 
-if (!getHousehold()) {
+if (!await getHousehold()) {
   logger.warn('no household configured, login will fail until you run: make seed');
 }
 
 init(HOST, PORT);
 
-logger.info('server started', { host: HOST, port: PORT, db: dbPath() });
+logger.info('server started', { host: HOST, port: PORT, db: dbPath });

@@ -1,0 +1,109 @@
+#!/bin/bash
+# Runs the Cloudflare tooling inside its own image (./Dockerfile), never on the host.
+#
+#   ./wr check                 type-check the Worker and the shared api it bundles
+#   ./wr build-client          build the client bundle into api/client (npm ci + build.ts)
+#   ./wr dev                   the Worker locally on http://127.0.0.1:8787, local D1 and R2
+#   ./wr exec <cmd...>         any command in the image, in cloudflare/ (used by the scripts)
+#   ./wr <wrangler args...>    anything else is passed to wrangler, e.g.
+#                              ./wr d1 migrations apply DB --remote
+#
+# wrangler.jsonc is rendered from wrangler.template.jsonc and .env on every run. The API
+# token comes from TOKEN_FILE (see .env.example), a 0600 file outside the repo, and only
+# reaches the container as an environment variable.
+set -euo pipefail
+
+# Rootless daemon: files the container writes land owned by the host user.
+export DOCKER_CONTEXT=rootless
+
+HERE=$(cd "$(dirname "$0")" && pwd)
+REPO=$(dirname "$HERE")
+
+WRANGLER_VERSION=$(sed -n 's/.*"wrangler": "\([^"]*\)".*/\1/p' "$HERE/package.json")
+IMAGE="where-to-go-today-cf:$WRANGLER_VERSION"
+
+if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+  echo "building $IMAGE" >&2
+  docker build -t "$IMAGE" "$HERE" >&2
+fi
+
+# ---- config -------------------------------------------------------------------------
+CF_ACCOUNT_ID=""
+HOSTNAME_PUBLIC="localhost"
+D1_NAME="where-to-go-today"
+D1_ID="00000000-0000-0000-0000-000000000000"
+R2_BUCKET="where-to-go-today-photos"
+TOKEN_FILE=""
+HAVE_ENV=0
+if [[ -f "$HERE/.env" ]]; then
+  # shellcheck disable=SC1091
+  . "$HERE/.env"
+  HOSTNAME_PUBLIC="${HOSTNAME:-}"
+  HAVE_ENV=1
+fi
+
+render() {
+  local drop='^__never__$'
+  # An empty account_id draws a warning on every run; local use has none.
+  [[ -z "$CF_ACCOUNT_ID" ]] && drop='__CF_ACCOUNT_ID__'
+  sed -e "/$drop/d" \
+      -e "s|__CF_ACCOUNT_ID__|$CF_ACCOUNT_ID|" \
+      -e "s|__HOSTNAME__|$HOSTNAME_PUBLIC|" \
+      -e "s|__D1_NAME__|$D1_NAME|" \
+      -e "s|__D1_ID__|$D1_ID|" \
+      -e "s|__R2_BUCKET__|$R2_BUCKET|" \
+      "$HERE/wrangler.template.jsonc" > "$HERE/wrangler.jsonc"
+}
+render
+
+run() {
+  local tty=() extra=()
+  # stdin only when it is a terminal or asked for (WR_STDIN=1): a piped stdin would
+  # otherwise be swallowed by whichever container runs first.
+  if [[ -t 0 && -t 1 ]]; then tty=(-i -t); elif [[ "${WR_STDIN:-}" == 1 ]]; then tty=(-i); fi
+  if [[ -n "$TOKEN_FILE" && -f "$TOKEN_FILE" ]]; then
+    extra+=(--env-file "$TOKEN_FILE")
+  fi
+  if [[ -n "$CF_ACCOUNT_ID" ]]; then
+    extra+=(-e "CLOUDFLARE_ACCOUNT_ID=$CF_ACCOUNT_ID")
+  fi
+  docker run --rm "${tty[@]}" "${extra[@]}" "${PORTS[@]}" \
+    --cap-drop ALL --security-opt no-new-privileges \
+    -v "$REPO":/work -w /work/cloudflare \
+    -e HOME=/tmp/home -e XDG_CONFIG_HOME=/tmp/home/.config \
+    "$IMAGE" \
+    sh -c 'ln -sfn /opt/cloudflare/node_modules node_modules && exec "$@"' -- "$@"
+}
+
+PORTS=()
+cmd="${1:-}"
+case "$cmd" in
+  check)
+    run tsc --noEmit -p tsconfig.json
+    ;;
+  build-client)
+    run sh -c 'cd ../client && npm ci --no-audit --no-fund && mkdir -p ../api/client && BUILD_HASH="$0" npm run build' \
+      "$(git -C "$REPO" rev-parse --short HEAD)"
+    ;;
+  dev)
+    shift
+    PORTS=(-p 127.0.0.1:8787:8787)
+    # Local only: D1 and R2 are simulated under .wrangler/state; nothing touches Cloudflare.
+    run wrangler dev --local --ip 0.0.0.0 --port 8787 "$@"
+    ;;
+  exec)
+    shift
+    run "$@"
+    ;;
+  "")
+    sed -n '2,14p' "$0"
+    exit 1
+    ;;
+  *)
+    if [[ $HAVE_ENV -eq 0 && " $* " != *" --local "* ]]; then
+      echo "no cloudflare/.env - copy .env.example and fill it in first (or pass --local)" >&2
+      exit 1
+    fi
+    run wrangler "$@"
+    ;;
+esac

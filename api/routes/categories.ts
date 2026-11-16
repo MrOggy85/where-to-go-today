@@ -11,8 +11,8 @@ import { errorResponse, jsonResponse, MAX_CATEGORY, readJson, str, ValidationErr
 // deno-lint-ignore no-explicit-any
 type Body = Record<string, any>;
 
-export function getCategories(auth: Auth): Response {
-  return jsonResponse({ categories: listCategories(auth.householdId) });
+export async function getCategories(auth: Auth): Promise<Response> {
+  return jsonResponse({ categories: await listCategories(auth.householdId) });
 }
 
 export async function postCategories(req: Request, auth: Auth): Promise<Response> {
@@ -21,7 +21,7 @@ export async function postCategories(req: Request, auth: Auth): Promise<Response
 
   try {
     const name = str(parsed.value.name, 'name', MAX_CATEGORY);
-    return jsonResponse({ category: createCategory(auth.householdId, name) }, 201);
+    return jsonResponse({ category: await createCategory(auth.householdId, name) }, 201);
   } catch (e) {
     return categoryError(e);
   }
@@ -33,7 +33,7 @@ export async function putCategory(req: Request, auth: Auth, id: string): Promise
 
   try {
     const name = str(parsed.value.name, 'name', MAX_CATEGORY);
-    const category = renameCategory(auth.householdId, id, name);
+    const category = await renameCategory(auth.householdId, id, name);
     if (!category) return errorResponse('category not found', 404);
     return jsonResponse({ category });
   } catch (e) {
@@ -42,8 +42,8 @@ export async function putCategory(req: Request, auth: Auth, id: string): Promise
 }
 
 /** Deleting untags the places that carry it; the client warns with the count first. */
-export function deleteCategoryById(auth: Auth, id: string): Response {
-  const result = deleteCategory(auth.householdId, id);
+export async function deleteCategoryById(auth: Auth, id: string): Promise<Response> {
+  const result = await deleteCategory(auth.householdId, id);
   if (!result) return errorResponse('category not found', 404);
   return jsonResponse({ result: 'deleted', untagged: result.untagged });
 }

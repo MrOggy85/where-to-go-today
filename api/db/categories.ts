@@ -1,10 +1,10 @@
-import { db, newId, nowIso, row, rows, run } from './db.ts';
+import { newId, nowIso, row, rows, run, type Statement, stmt } from './db.ts';
 import type { Category, CategoryWithCount } from './types.ts';
 
 /** Thrown when a name collides with an existing category in the same household. */
 export class DuplicateCategoryError extends Error {}
 
-export function listCategories(householdId: string): CategoryWithCount[] {
+export function listCategories(householdId: string): Promise<CategoryWithCount[]> {
   return rows<CategoryWithCount>(
     `SELECT c.id, c.name,
             (SELECT COUNT(*) FROM place_categories pc WHERE pc.category_id = c.id) AS placeCount
@@ -15,12 +15,12 @@ export function listCategories(householdId: string): CategoryWithCount[] {
   );
 }
 
-export function getCategory(householdId: string, id: string): Category | null {
+export function getCategory(householdId: string, id: string): Promise<Category | null> {
   return row<Category>('SELECT id, name FROM categories WHERE household_id = ? AND id = ?', householdId, id);
 }
 
 /** Case-insensitive, so "Park" is found when "park" already exists. */
-function findByName(householdId: string, name: string, exceptId?: string): Category | null {
+function findByName(householdId: string, name: string, exceptId?: string): Promise<Category | null> {
   const where = exceptId ? 'AND id != ?' : '';
   const params: unknown[] = [householdId, name];
   if (exceptId) params.push(exceptId);
@@ -30,11 +30,11 @@ function findByName(householdId: string, name: string, exceptId?: string): Categ
   );
 }
 
-export function createCategory(householdId: string, name: string): Category {
-  if (findByName(householdId, name)) throw new DuplicateCategoryError(`"${name}" already exists`);
+export async function createCategory(householdId: string, name: string): Promise<Category> {
+  if (await findByName(householdId, name)) throw new DuplicateCategoryError(`"${name}" already exists`);
 
   const id = newId();
-  run(
+  await run(
     'INSERT INTO categories (id, household_id, name, created_at) VALUES (?, ?, ?, ?)',
     id,
     householdId,
@@ -44,11 +44,11 @@ export function createCategory(householdId: string, name: string): Category {
   return { id, name };
 }
 
-export function renameCategory(householdId: string, id: string, name: string): Category | null {
-  if (!getCategory(householdId, id)) return null;
-  if (findByName(householdId, name, id)) throw new DuplicateCategoryError(`"${name}" already exists`);
+export async function renameCategory(householdId: string, id: string, name: string): Promise<Category | null> {
+  if (!await getCategory(householdId, id)) return null;
+  if (await findByName(householdId, name, id)) throw new DuplicateCategoryError(`"${name}" already exists`);
 
-  run('UPDATE categories SET name = ? WHERE household_id = ? AND id = ?', name, householdId, id);
+  await run('UPDATE categories SET name = ? WHERE household_id = ? AND id = ?', name, householdId, id);
   return { id, name };
 }
 
@@ -56,12 +56,12 @@ export function renameCategory(householdId: string, id: string, name: string): C
  * Deleting untags the places that carry it rather than refusing: the places themselves are
  * untouched, and the confirm sheet has already shown how many are affected.
  */
-export function deleteCategory(householdId: string, id: string): { untagged: number } | null {
-  if (!getCategory(householdId, id)) return null;
+export async function deleteCategory(householdId: string, id: string): Promise<{ untagged: number } | null> {
+  if (!await getCategory(householdId, id)) return null;
 
-  const untagged = rows('SELECT place_id FROM place_categories WHERE category_id = ?', id).length;
+  const untagged = (await rows('SELECT place_id FROM place_categories WHERE category_id = ?', id)).length;
   // place_categories.category_id cascades, so the links go with the row.
-  run('DELETE FROM categories WHERE household_id = ? AND id = ?', householdId, id);
+  await run('DELETE FROM categories WHERE household_id = ? AND id = ?', householdId, id);
   return { untagged };
 }
 
@@ -69,11 +69,11 @@ export function deleteCategory(householdId: string, id: string): { untagged: num
  * Filters a client-supplied list down to ids this household actually owns. Unknown ids are
  * dropped rather than trusted, so a stale form cannot tag a place with someone else's row.
  */
-export function ownedCategoryIds(householdId: string, ids: string[]): string[] {
+export async function ownedCategoryIds(householdId: string, ids: string[]): Promise<string[]> {
   if (!ids.length) return [];
 
   const placeholders = ids.map(() => '?').join(', ');
-  const found = rows<{ id: string }>(
+  const found = await rows<{ id: string }>(
     `SELECT id FROM categories WHERE household_id = ? AND id IN (${placeholders})`,
     householdId,
     ...ids,
@@ -82,8 +82,12 @@ export function ownedCategoryIds(householdId: string, ids: string[]): string[] {
   return ids.filter((id) => owned.has(id));
 }
 
-export function replaceCategories(placeId: string, categoryIds: string[]) {
-  run('DELETE FROM place_categories WHERE place_id = ?', placeId);
-  const stmt = db.prepare('INSERT OR IGNORE INTO place_categories (place_id, category_id) VALUES (?, ?)');
-  for (const id of categoryIds) stmt.run(placeId, id);
+/** The statements that make a place carry exactly these categories, for the caller's batch. */
+export function replaceCategories(placeId: string, categoryIds: string[]): Statement[] {
+  return [
+    stmt('DELETE FROM place_categories WHERE place_id = ?', placeId),
+    ...categoryIds.map((id) =>
+      stmt('INSERT OR IGNORE INTO place_categories (place_id, category_id) VALUES (?, ?)', placeId, id)
+    ),
+  ];
 }

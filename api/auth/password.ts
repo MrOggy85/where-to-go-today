@@ -1,6 +1,12 @@
+import { config } from '../config.ts';
+import logger from '../logger.ts';
+
 // PBKDF2-HMAC-SHA256 via Web Crypto. No native dependency, no build step, and strong
-// enough for a single shared household password behind a rate-limited login.
-const ITERATIONS = 210_000;
+// enough for a single shared household password behind a rate-limited, country-filtered
+// login. New hashes use `config.pbkdf2Iterations`: 100,000, the most Cloudflare Workers
+// accepts. Older hashes carry their own count and still verify on Deno; on a Worker a
+// count above 100,000 throws, which is logged so a failing login says why: reset the
+// password to rehash it.
 const KEY_BITS = 256;
 const SALT_BYTES = 16;
 
@@ -27,8 +33,9 @@ async function derive(password: string, salt: Uint8Array, iterations: number) {
 /** Encoded as `pbkdf2$<iterations>$<saltB64>$<hashB64>` so the cost can be raised later. */
 export async function hashPassword(password: string): Promise<string> {
   const salt = crypto.getRandomValues(new Uint8Array(SALT_BYTES));
-  const hash = await derive(password, salt, ITERATIONS);
-  return `pbkdf2$${ITERATIONS}$${toBase64(salt)}$${toBase64(hash)}`;
+  const iterations = config.pbkdf2Iterations;
+  const hash = await derive(password, salt, iterations);
+  return `pbkdf2$${iterations}$${toBase64(salt)}$${toBase64(hash)}`;
 }
 
 export async function verifyPassword(password: string, encoded: string): Promise<boolean> {
@@ -39,7 +46,16 @@ export async function verifyPassword(password: string, encoded: string): Promise
   if (!Number.isFinite(iterations) || iterations < 1) return false;
 
   const expected = fromBase64(parts[3]);
-  const actual = await derive(password, fromBase64(parts[2]), iterations);
+  let actual: Uint8Array;
+  try {
+    actual = await derive(password, fromBase64(parts[2]), iterations);
+  } catch (err) {
+    logger.error('password check failed, reset the password to rehash it', {
+      iterations,
+      error: logger.serializeError(err),
+    });
+    return false;
+  }
   return timingSafeEqual(expected, actual);
 }
 

@@ -1,4 +1,4 @@
-import { db, newId, nowIso, row, rows, run } from './db.ts';
+import { batch, newId, nowIso, row, rows, run, stmt } from './db.ts';
 import { replaceCategories } from './categories.ts';
 import { filenamesForPlace } from './photos.ts';
 import type { Category, CostLevel, Place, PlaceEnvironment, PlaceRow, PlaceStatus, Tristate } from './types.ts';
@@ -86,7 +86,7 @@ export interface PlaceFilters {
   minPriority?: number;
 }
 
-export function listPlaces(householdId: string, f: PlaceFilters = {}): Place[] {
+export async function listPlaces(householdId: string, f: PlaceFilters = {}): Promise<Place[]> {
   const where = ['p.household_id = ?'];
   const params: unknown[] = [householdId];
 
@@ -134,11 +134,11 @@ export function listPlaces(householdId: string, f: PlaceFilters = {}): Place[] {
   }
 
   const sql = `${SELECT_PLACE} WHERE ${where.join(' AND ')} ORDER BY p.name COLLATE NOCASE ASC`;
-  return rows<PlaceRow>(sql, ...params).map(toPlace);
+  return (await rows<PlaceRow>(sql, ...params)).map(toPlace);
 }
 
-export function getPlace(householdId: string, id: string): Place | null {
-  const r = row<PlaceRow>(`${SELECT_PLACE} WHERE p.household_id = ? AND p.id = ?`, householdId, id);
+export async function getPlace(householdId: string, id: string): Promise<Place | null> {
+  const r = await row<PlaceRow>(`${SELECT_PLACE} WHERE p.household_id = ? AND p.id = ?`, householdId, id);
   return r ? toPlace(r) : null;
 }
 
@@ -199,7 +199,7 @@ function columnValues(input: PlaceInput) {
   return COLUMNS.map((c) => (input as unknown as Record<string, unknown>)[c] ?? null);
 }
 
-export function createPlace(householdId: string, profileId: string | null, input: PlaceInput): Place {
+export async function createPlace(householdId: string, profileId: string | null, input: PlaceInput): Promise<Place> {
   const id = newId();
   const at = nowIso();
 
@@ -208,37 +208,27 @@ export function createPlace(householdId: string, profileId: string | null, input
   }, created_at, updated_at, created_by_profile_id)
     VALUES (?, ?, ${COLUMNS.map(() => '?').join(', ')}, ?, ?, ?)`;
 
-  db.exec('BEGIN');
-  try {
-    run(sql, id, householdId, ...columnValues(input), at, at, profileId);
-    replaceCategories(id, input.categoryIds);
-    db.exec('COMMIT');
-  } catch (e) {
-    db.exec('ROLLBACK');
-    throw e;
-  }
+  await batch([
+    stmt(sql, id, householdId, ...columnValues(input), at, at, profileId),
+    ...replaceCategories(id, input.categoryIds),
+  ]);
 
-  return getPlace(householdId, id)!;
+  return (await getPlace(householdId, id))!;
 }
 
-export function updatePlace(householdId: string, id: string, input: PlaceInput): Place | null {
-  const existing = getPlace(householdId, id);
+export async function updatePlace(householdId: string, id: string, input: PlaceInput): Promise<Place | null> {
+  const existing = await getPlace(householdId, id);
   if (!existing) return null;
 
   const sql = `UPDATE places SET ${COLUMNS.map((c) => `${c} = ?`).join(', ')}, updated_at = ?
     WHERE household_id = ? AND id = ?`;
 
-  db.exec('BEGIN');
-  try {
-    run(sql, ...columnValues(input), nowIso(), householdId, id);
-    replaceCategories(id, input.categoryIds);
-    db.exec('COMMIT');
-  } catch (e) {
-    db.exec('ROLLBACK');
-    throw e;
-  }
+  await batch([
+    stmt(sql, ...columnValues(input), nowIso(), householdId, id),
+    ...replaceCategories(id, input.categoryIds),
+  ]);
 
-  return getPlace(householdId, id);
+  return await getPlace(householdId, id);
 }
 
 export type DeleteResult = 'deleted' | 'archived' | 'missing';
@@ -250,12 +240,15 @@ export type DeleteResult = 'deleted' | 'archived' | 'missing';
  * Photo rows cascade with the place, so their filenames come back for the caller to unlink;
  * file IO stays out of the db layer.
  */
-export function deletePlace(householdId: string, id: string): { result: DeleteResult; orphanedFiles: string[] } {
-  const existing = getPlace(householdId, id);
+export async function deletePlace(
+  householdId: string,
+  id: string,
+): Promise<{ result: DeleteResult; orphanedFiles: string[] }> {
+  const existing = await getPlace(householdId, id);
   if (!existing) return { result: 'missing', orphanedFiles: [] };
 
   if (existing.visitCount > 0) {
-    run(
+    await run(
       "UPDATE places SET status = 'archived', updated_at = ? WHERE household_id = ? AND id = ?",
       nowIso(),
       householdId,
@@ -264,7 +257,7 @@ export function deletePlace(householdId: string, id: string): { result: DeleteRe
     return { result: 'archived', orphanedFiles: [] };
   }
 
-  const orphanedFiles = filenamesForPlace(householdId, id);
-  run('DELETE FROM places WHERE household_id = ? AND id = ?', householdId, id);
+  const orphanedFiles = await filenamesForPlace(householdId, id);
+  await run('DELETE FROM places WHERE household_id = ? AND id = ?', householdId, id);
   return { result: 'deleted', orphanedFiles };
 }

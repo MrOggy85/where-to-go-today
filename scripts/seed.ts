@@ -7,7 +7,8 @@
  * Re-running is safe: it refuses to touch an existing household unless --force is given,
  * in which case it only resets the password.
  */
-import { db, nowIso } from '../api/db/db.ts';
+import { nowIso, row, useDriver } from '../api/db/db.ts';
+import { openSqlite } from '../api/db/sqlite.ts';
 import {
   createHousehold,
   createProfile,
@@ -20,6 +21,8 @@ import { createCategory } from '../api/db/categories.ts';
 import { createVisit } from '../api/db/visits.ts';
 import { hashPassword } from '../api/auth/password.ts';
 import type { PlaceInput } from '../api/db/places.ts';
+
+useDriver(openSqlite());
 
 function arg(name: string): string | undefined {
   const prefix = `--${name}=`;
@@ -37,28 +40,28 @@ if (!password) {
 const householdName = arg('name') ?? 'Home';
 const profileNames = (arg('profiles') ?? 'Adult 1,Adult 2').split(',').map((s) => s.trim()).filter(Boolean);
 
-let household = getHousehold();
+let household = await getHousehold();
 
 if (household) {
   if (!flag('force')) {
     console.error(`household "${household.name}" already exists; pass --force to reset its password`);
     Deno.exit(1);
   }
-  setHouseholdPassword(household.id, await hashPassword(password));
+  await setHouseholdPassword(household.id, await hashPassword(password));
   console.log('password reset');
 } else {
-  household = createHousehold(householdName, await hashPassword(password), arg('timezone') ?? 'Asia/Tokyo');
+  household = await createHousehold(householdName, await hashPassword(password), arg('timezone') ?? 'Asia/Tokyo');
   console.log(`created household "${household.name}"`);
 }
 
-const existing = listProfiles(household.id);
+const existing = await listProfiles(household.id);
 for (const name of profileNames) {
   if (existing.some((p) => p.name === name)) continue;
-  const p = createProfile(household.id, name);
+  const p = await createProfile(household.id, name);
   console.log(`created profile "${p.name}"`);
 }
 
-if (flag('demo')) seedDemoPlaces(household.id);
+if (flag('demo')) await seedDemoPlaces(household.id);
 
 function base(name: string, environment: PlaceInput['environment']): PlaceInput {
   return {
@@ -88,22 +91,22 @@ function base(name: string, environment: PlaceInput['environment']): PlaceInput 
   };
 }
 
-function seedDemoPlaces(householdId: string) {
-  const count = db.prepare('SELECT COUNT(*) AS n FROM places WHERE household_id = ?').get(householdId) as { n: number };
-  if (count.n > 0) {
+async function seedDemoPlaces(householdId: string) {
+  const count = await row<{ n: number }>('SELECT COUNT(*) AS n FROM places WHERE household_id = ?', householdId);
+  if (count && count.n > 0) {
     console.log('places already exist, skipping demo data');
     return;
   }
 
-  const profile = listProfiles(householdId)[0] ?? null;
+  const profile = (await listProfiles(householdId))[0] ?? null;
   const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString();
 
   // Categories are records now, so the demo names are resolved to ids as they are first used.
   const categoryIds = new Map<string, string>();
-  const categoryId = (name: string) => {
+  const categoryId = async (name: string) => {
     let id = categoryIds.get(name);
     if (!id) {
-      id = createCategory(householdId, name).id;
+      id = (await createCategory(householdId, name)).id;
       categoryIds.set(name, id);
     }
     return id;
@@ -186,12 +189,15 @@ function seedDemoPlaces(householdId: string) {
   ];
 
   for (const { input, categories, visitedDaysAgo } of demo) {
-    const place = createPlace(householdId, profile?.id ?? null, {
-      ...input,
-      categoryIds: (categories ?? []).map(categoryId),
-    });
+    const ids: string[] = [];
+    for (const c of categories ?? []) ids.push(await categoryId(c));
+    const place = await createPlace(householdId, profile?.id ?? null, { ...input, categoryIds: ids });
     for (const d of visitedDaysAgo ?? []) {
-      createVisit(householdId, place.id, profile?.id ?? null, { visitedAt: daysAgo(d), note: null, rating: null });
+      await createVisit(householdId, place.id, profile?.id ?? null, {
+        visitedAt: daysAgo(d),
+        note: null,
+        rating: null,
+      });
     }
     console.log(`created place "${place.name}"`);
   }
