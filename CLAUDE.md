@@ -79,7 +79,7 @@ make cf-dev    # the Worker locally on http://127.0.0.1:8787, local D1
 **Production is a Cloudflare Worker since 2026-11-17**: D1 (rows and photos) + static
 assets, at the account's workers.dev address for now. `cloudflare/README.md` has the setup,
 the differences from the Deno server and why; deploy with `cloudflare/deploy.sh`. The home
-server's containers below are **stopped** (`restart=no`) and kept as the way back; what
+server's containers were removed on 2026-11-17; `deploy/` stays as the way back, and what
 follows describes that deployment.
 
 Until 2026-11-17 production ran on the home server as two Docker containers on the **rootless** daemon
