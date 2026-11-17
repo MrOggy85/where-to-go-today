@@ -76,12 +76,15 @@ make cf-dev    # the Worker locally on http://127.0.0.1:8787, local D1
 
 ## Deployment
 
-**Moving to Cloudflare Workers** (prepared 2026-11-16, branch `cloudflare`): D1 (rows and photos) +
-static assets on a Custom Domain, so the home server leaves the request path.
-`cloudflare/README.md` has the setup, the differences from the Deno server and why. Until
-the cutover, the Deno deployment below is production.
+**Production is a Cloudflare Worker since 2026-11-17**: D1 (rows and photos) + static
+assets, at the account's workers.dev address for now. `cloudflare/README.md` has the setup,
+the differences from the Deno server and why; deploy with `cloudflare/deploy.sh`. The home
+server's containers below are **stopped** (`restart=no`) and kept as the way back; what
+follows describes that deployment.
 
-Production runs on the home server as two Docker containers on the **rootless** daemon
+
+
+Until 2026-11-17 production ran on the home server as two Docker containers on the **rootless** daemon
 (since 2026-11-11; every deploy script sets `DOCKER_CONTEXT=rootless`), public over
 Tailscale Funnel. `deploy/` holds the scripts; `PROJECT.md` section 21 is the contract.
 
