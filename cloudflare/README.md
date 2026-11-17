@@ -69,6 +69,9 @@ An **account-owned** token (Manage Account → Account API Tokens → Create): w
 | Zone (yours) | **Workers Routes: Edit** | that zone only | the Route on the hostname |
 | Zone (yours) | **Zone: Read** | that zone only | wrangler turns `zone_name` into the zone id |
 
+**In practice (2026-11-17) the token Odin Deploy has Workers Editor on the whole
+account**, on purpose: it is the general deploy token for every Worker he runs on
+Cloudflare. Scope it to one Worker only for a token that serves a single app.
 No Admin: Editor cannot create or delete, which is why the Worker and the database are
 made in the dashboard first. No R2: photos live in D1 (below). If scoping to the one Worker is refused (there are
 reports of that), scope Workers Editor to all Workers instead. **No DNS permission**:
