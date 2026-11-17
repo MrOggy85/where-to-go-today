@@ -66,8 +66,8 @@ An **account-owned** token (Manage Account → Account API Tokens → Create): w
 |---|---|---|---|
 | Workers | **Editor** | the Worker `where-to-go-today` | deploy, `secret put`, `./wr tail`, logs and CPU time (Editor includes Metadata Read-only) |
 | D1 | **Editor** (or *D1: Edit* if that row is still the old kind) | the database `where-to-go-today` | migrations, the import, `set-password.sh` |
-| Zone `okuno.se` | **Workers Routes: Edit** | that zone only | the Route on the hostname |
-| Zone `okuno.se` | **Zone: Read** | that zone only | wrangler turns `zone_name` into the zone id |
+| Zone (yours) | **Workers Routes: Edit** | that zone only | the Route on the hostname |
+| Zone (yours) | **Zone: Read** | that zone only | wrangler turns `zone_name` into the zone id |
 
 No Admin: Editor cannot create or delete, which is why the Worker and the database are
 made in the dashboard first. No R2: photos live in D1 (below). If scoping to the one Worker is refused (there are
