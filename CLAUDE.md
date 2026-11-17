@@ -82,8 +82,6 @@ the differences from the Deno server and why; deploy with `cloudflare/deploy.sh`
 server's containers below are **stopped** (`restart=no`) and kept as the way back; what
 follows describes that deployment.
 
-
-
 Until 2026-11-17 production ran on the home server as two Docker containers on the **rootless** daemon
 (since 2026-11-11; every deploy script sets `DOCKER_CONTEXT=rootless`), public over
 Tailscale Funnel. `deploy/` holds the scripts; `PROJECT.md` section 21 is the contract.
