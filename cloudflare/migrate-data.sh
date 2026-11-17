@@ -31,7 +31,7 @@ if [[ "$where" == --local ]]; then
   BASE=http://127.0.0.1:8787
   OPS_TOKEN=$(sed -n 's/^OPS_TOKEN=//p' .dev.vars 2>/dev/null)
 else
-  BASE="https://$HOSTNAME"
+  BASE=${PUBLIC_URL:-https://$HOSTNAME}
   OPS_TOKEN=$(cat "$HOME/.config/where-to-go-today/ops-token" 2>/dev/null)
 fi
 [[ -n "${OPS_TOKEN:-}" ]] || { echo "no OPS_TOKEN (.dev.vars locally, ~/.config/where-to-go-today/ops-token remotely)" >&2; exit 1; }

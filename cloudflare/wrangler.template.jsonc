@@ -13,8 +13,10 @@
   // on a proxied record is served under the zone's wildcard certificate and names
   // nothing (decisions/2026-11-04-pages-on-home-okuno-se.md in the ops repo: privacy by
   // not publishing). The proxied record (AAAA 100::) is made once by hand; see README.
-  // No workers.dev address and no preview URLs, so this is the only door.
-  "workers_dev": false,
+  // Also the account's workers.dev address (Oskar, 2026-11-17: the main entry until the
+  // DNS record exists; *.workers.dev is itself a wildcard certificate, so it names
+  // nothing in CT either). No preview URLs.
+  "workers_dev": true,
   "preview_urls": false,
   "routes": [{ "pattern": "__HOSTNAME__/*", "zone_name": "__ZONE__" }],
 

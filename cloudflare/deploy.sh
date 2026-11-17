@@ -10,6 +10,7 @@ cd "$HERE"
 
 [[ -f .env ]] || { echo "no cloudflare/.env - see .env.example" >&2; exit 1; }
 . ./.env
+URL=${PUBLIC_URL:-https://$HOSTNAME}
 
 if [[ "${1:-}" != --dirty && -n "$(git status --porcelain -- ..)" ]]; then
   echo "uncommitted changes; commit first or pass --dirty" >&2
@@ -27,11 +28,11 @@ echo "== deploy"
 
 echo "== health"
 for _ in 1 2 3 4 5 6; do
-  if curl -fsS --max-time 10 "https://$HOSTNAME/api/health" | grep -q '"ok":true'; then
-    echo "https://$HOSTNAME answers"
+  if curl -fsS --max-time 10 "$URL/api/health" | grep -q '"ok":true'; then
+    echo "$URL answers"
     exit 0
   fi
   sleep 5
 done
-echo "https://$HOSTNAME/api/health is not answering ok" >&2
+echo "$URL/api/health is not answering ok" >&2
 exit 1
